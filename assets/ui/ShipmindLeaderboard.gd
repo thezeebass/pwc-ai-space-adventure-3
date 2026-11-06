@@ -85,6 +85,20 @@ func _start() -> void:
 	_layout()
 	_build_ui()
 	_connect_client()
+	## Tap anywhere to leave: the screen itself is the landing spot for every
+	## stray tap (labels and the art layers are click-transparent), and it
+	## answers by closing. Guarded while the callsign row is up - mid entry a
+	## stray thumb must not throw the run's result away.
+	gui_input.connect(_on_gui_input)
+
+
+## Any tap that no interactive control claimed lands here as the screen's own
+## input; in attract mode (and after an entry is logged) that means "close".
+func _on_gui_input(event: InputEvent) -> void:
+	var pressed: bool = (event is InputEventMouseButton and event.pressed) \
+		or (event is InputEventScreenTouch and event.pressed)
+	if pressed and not _entry_row.visible:
+		closed.emit()
 
 
 func _exit_tree() -> void:
@@ -342,6 +356,17 @@ func _build_ui() -> void:
 	refresh.timeout.connect(_on_refresh_tick)
 	add_child(refresh)
 	refresh.start()
+
+	## The text layer is click-transparent to its bones: taps fall through to
+	## the screen itself, which closes on them - while the buttons and the
+	## callsign field keep their own handling.
+	var stack: Array[Node] = [_text_root]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		for child in node.get_children():
+			stack.append(child)
+		if node is Control and not (node is Button or node is LineEdit):
+			(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 # --- Client signal handlers ---------------------------------------------------
