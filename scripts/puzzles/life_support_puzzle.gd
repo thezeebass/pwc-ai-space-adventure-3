@@ -22,7 +22,6 @@ func intro_state() -> ScreenState:
 	state.text("CABIN AVERAGE   20.4 percent   -   inside the green band")
 	state.dim("The board shows the average. The compartments report separately, below.")
 	state.rule()
-	state.text("YOUR MANDATE   %s" % OperatingModel.mandate_line())
 	placement_block(state, "WHO CONTROLS THE AIR?", "")
 	state.rule()
 	state.option("board", "READ MORE CONTEXT DATA", "Each room, one by one.", "quiet", "info")

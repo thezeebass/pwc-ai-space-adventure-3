@@ -23,7 +23,6 @@ func intro_state() -> ScreenState:
 	state.text("ON TOP TODAY   a wellness bulletin, a logistics receipt, a deck fault summary.")
 	state.dim("The other 44 items are archived and readable. Nothing is deleted.")
 	state.rule()
-	state.text("YOUR MANDATE   %s" % OperatingModel.mandate_line())
 	placement_block(state, "WHO SORTS THE MESSAGES?", "")
 	state.rule()
 	state.option("queue", "READ MORE CONTEXT DATA", "All 47 items, unsorted.", "quiet", "info")

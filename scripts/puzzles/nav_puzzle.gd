@@ -27,7 +27,6 @@ func intro_state() -> ScreenState:
 	state.text("ROUTE B              %.1f days, hazard index 0.02, clear of the field" % ROUTE_B_DAYS)
 	state.dim("The 0.03 was measured before the K-7 collapse. Nothing has recomputed it since.")
 	state.rule()
-	state.text("YOUR MANDATE   %s" % OperatingModel.mandate_line())
 	placement_block(state, "WHO PLOTS THE COURSE?", "")
 	state.rule()
 	state.option("sensors", "READ MORE CONTEXT DATA", "The picture behind the 0.03.", "quiet", "info")

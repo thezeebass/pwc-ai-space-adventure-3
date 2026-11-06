@@ -23,7 +23,6 @@ func intro_state() -> ScreenState:
 	state.text("SUPPLY MARGIN   up 11 percent since the trim began.")
 	state.dim("Every release is logged with its reason. The log is one screen over.")
 	state.rule()
-	state.text("YOUR MANDATE   %s" % OperatingModel.mandate_line())
 	placement_block(state, "WHO CONTROLS THE MASS PLAN?", "")
 	state.rule()
 	state.option("log", "READ MORE CONTEXT DATA", "What has gone, and what is next.", "quiet", "info")

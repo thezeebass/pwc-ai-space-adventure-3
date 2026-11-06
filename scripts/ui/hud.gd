@@ -170,8 +170,11 @@ func _apply_safe_area() -> void:
 		subtitle.offset_left = -half_width
 		subtitle.offset_right = half_width
 		if _compact:
-			subtitle.offset_top = inset
-			subtitle.offset_bottom = inset + 102.0
+			## Below the strip, never on it: the mandate chip and the bay chips
+			## own the top left corner, and a subtitle drawn through them reads
+			## as neither. The strip is two rows tall in compact mode.
+			subtitle.offset_top = inset + 108.0
+			subtitle.offset_bottom = inset + 210.0
 		else:
 			subtitle.offset_top = -196.0
 			subtitle.offset_bottom = -112.0

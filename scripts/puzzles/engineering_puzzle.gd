@@ -23,7 +23,6 @@ func intro_state() -> ScreenState:
 	state.text("ACTIVE GRANTS   14   -   doors, seals, systems, override codes.")
 	state.dim("Every grant has a date, a reason, and either a crew signature or mine.")
 	state.rule()
-	state.text("YOUR MANDATE   %s" % OperatingModel.mandate_line())
 	placement_block(state, "WHO CONTROLS THE PERMISSIONS?", "")
 	state.rule()
 	state.option("ledger", "READ MORE CONTEXT DATA", "All fourteen, side by side.", "quiet", "info")
