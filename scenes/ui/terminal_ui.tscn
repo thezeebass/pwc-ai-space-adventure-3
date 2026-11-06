@@ -87,7 +87,7 @@ theme_override_constants/separation = 5
 
 [node name="Decision" type="VBoxContainer" parent="Root/Panel/VBox/Columns"]
 size_flags_horizontal = 3
-stretch_ratio = 1.15
+stretch_ratio = 1.35
 theme_override_constants/separation = 6
 
 [node name="DecisionTitle" type="Label" parent="Root/Panel/VBox/Columns/Decision"]

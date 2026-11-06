@@ -48,7 +48,7 @@ signal closed
 ## screen. A phone has no ESC and no keyboard, so its way out is the CLOSE
 ## button rather than a key.
 const FOOTER_DESKTOP := "CLICK or any key skips the print   -   ESC closes"
-const FOOTER_TOUCH := "TAP the readout to print it all   -   TAP CLOSE to leave"
+const FOOTER_TOUCH := "TAP CLOSE to leave"
 
 const TONES := {
 	"shipmind": Color(0.941, 0.722, 0.224),
@@ -81,16 +81,14 @@ var _owner_requirement: Label = null
 var _commit: Button = null
 ## The placement control's own state beyond the three ids: the entries each
 ## section was drawn from, so a press can find the option it belongs to and
-## reveal its detail block; the detail panels themselves ([panel, kicker,
-## body], one per section, hidden until that section's option is chosen); and
-## the spectrum track the level stops ride on.
+## reveal its detail block; and the detail panels themselves ([panel, kicker,
+## body], one per section, hidden until that section's option is chosen).
 var _level_entries: Array = []
 var _guardrail_entries: Array = []
 var _owner_entries: Array = []
 var _level_detail: Array = []
 var _guardrail_detail: Array = []
 var _owner_detail: Array = []
-var _track: SpectrumTrack = null
 
 
 func _ready() -> void:
@@ -204,6 +202,12 @@ func _render(state: ScreenState) -> void:
 func _start_print() -> void:
 	if _pending.is_empty():
 		return
+	## A phone reads at a glance and navigates by thumb; waiting out the
+	## typewriter - or tapping past it on every screen - is friction the touch
+	## build does not need. The print effect stays a desktop flavour.
+	if touch_mode():
+		_reveal_all()
+		return
 	_timer.start(print_interval)
 	_print_step()
 
@@ -289,7 +293,7 @@ func _make_option_button(entry: Dictionary) -> Button:
 
 ## An icon-anchored read button: one HBox child carries the glyph and the two
 ## lines of text, set out over the button with the same full-rect trick the
-## level stops use. tone "primary" is the screen's key action - on a decision
+## level cells use. tone "primary" is the screen's key action - on a decision
 ## console that is asking SHIPMIND - so it gets the accent treatment; anything
 ## else is a quieter read, like the context data.
 func _make_icon_button(entry: Dictionary, hint: String) -> Button:
@@ -297,7 +301,12 @@ func _make_icon_button(entry: Dictionary, hint: String) -> Button:
 	var button := Button.new()
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.focus_mode = Control.FOCUS_ALL
-	button.custom_minimum_size = Vector2(0.0, 64.0 if touch else 48.0)
+	## The content row is an overlay, so it does not count toward the button's
+	## own height: the minimum has to hold BOTH lines itself, and clip_contents
+	## is the hard stop that kept a tall row drawing across the button below
+	## (the overlap seen on the phone).
+	button.custom_minimum_size = Vector2(0.0, (96.0 if hint != "" else 60.0) if touch else (68.0 if hint != "" else 48.0))
+	button.clip_contents = true
 	var tone: String = String(entry.get("tone", "normal"))
 	var key := tone == "primary"
 	var text_tint: Color = Brand.ACCENT_TINT if key else Brand.NEUTRAL_LIGHT
@@ -404,7 +413,7 @@ func _draw_spectrum(block: Dictionary) -> void:
 		## default is the strict one: a level that does not say gets asked for an
 		## owner rather than being let through.
 		_levels_require_owner[String(level.get("id", ""))] = bool(level.get("requires_owner", true))
-	_spectrum_box.add_child(_level_slider(levels))
+	_spectrum_box.add_child(_level_matrix(levels))
 	_level_detail = _detail_panel()
 	_spectrum_box.add_child(_level_detail[0])
 
@@ -478,7 +487,6 @@ func _draw_spectrum(block: Dictionary) -> void:
 
 func _on_level_pressed(level_id: String) -> void:
 	_level_choice = level_id
-	_update_track_selection(level_id)
 	_show_level_detail(level_id)
 	_refresh_owner_requirement()
 	_refresh_commit()
@@ -513,7 +521,7 @@ func _show_level_detail(level_id: String) -> void:
 		return
 	_show_detail(_level_detail, String(entry.get("label", "")), String(entry.get("hint", "")))
 	## The detail block carries the chosen level's colour down its left edge, so
-	## the reading under the slider belongs to the box that was pressed.
+	## the reading under the matrix belongs to the cell that was pressed.
 	if _level_detail.size() < 1:
 		return
 	var panel := _level_detail[0] as PanelContainer
@@ -548,21 +556,6 @@ func _show_detail(detail: Array, kicker_text: String, body_text: String) -> void
 	panel.visible = true
 	(detail[1] as Label).text = kicker_text
 	(detail[2] as Label).text = body_text
-
-
-## The chosen rung, as distance: the accent fill on the track runs from the
-## first stop to the one selected, so "how much authority is delegated" reads
-## as position, not as a list of toggles.
-func _update_track_selection(level_id: String) -> void:
-	if _track == null:
-		return
-	var index := 0
-	for entry in _level_entries:
-		if String(entry.get("id", "")) == level_id:
-			_track.selected = index
-			_track.queue_redraw()
-			return
-		index += 1
 
 
 ## True when a placement at this level has to name a role that owns it.
@@ -616,50 +609,55 @@ func _on_commit_pressed() -> void:
 		_puzzle.place(level_id)
 
 
-# --- The level slider ----------------------------------------------------------
+# --- The level matrix ----------------------------------------------------------
 
 
-## The four levels of the autonomy spectrum, drawn as a slider: one row of four
-## stops riding on a track, each stop an icon with its one-word caption under
-## it. This is the list-item-anchoring rule from the UX skill applied to the
-## game's central control - the eye reads four pictures left to right (the
-## model acting alone, a human watching, a stamp of authorisation, a person)
-## before it reads any words, and the line under them says the rungs are
-## positions on one spectrum, not four unrelated checkboxes.
+## The four levels of the autonomy spectrum, drawn as a 2x2 matrix: each cell
+## is the level's icon over its full name, filled with the level's own chart
+## colour. The eye reads four pictures before it reads any words (the model
+## acting alone, a human watching, a stamp of authorisation, a person), and
+## the cells run in model order - most machine at the top left, most human at
+## the bottom right - so the matrix still reads as one spectrum, not four
+## unrelated checkboxes.
 ##
-## The detail is the second layer: each stop's full label and what the level
-## means live in a smaller block that appears under the slider only for the
-## setting chosen - the same disclosure the mandate picker uses on the launch
+## One row of four stops was tried first; on a phone the column each stop got
+## crushed the labels into mid-word wraps ("HUMA N REVIE W"), illegible at the
+## exact moment the decision is made. Two columns give every name its full
+## width on any screen the game ships to.
+##
+## The detail is the second layer: each cell's full label and what the level
+## means live in a smaller block that appears under the matrix only for the
+## setting chosen - the same disclosure the mandate picker used on the launch
 ## screen, so both places teach the same reading habit.
-func _level_slider(levels: Array) -> Control:
+func _level_matrix(levels: Array) -> Control:
 	var holder := VBoxContainer.new()
-	holder.name = "LevelSlider"
-	holder.add_theme_constant_override("separation", 2)
-	_track = SpectrumTrack.new()
-	_track.name = "Track"
-	_track.stop_count = maxi(levels.size(), 2)
-	_track.custom_minimum_size = Vector2(0.0, 8.0)
-	holder.add_child(_track)
-	var row := HBoxContainer.new()
-	row.name = "Stops"
-	row.add_theme_constant_override("separation", 8)
+	holder.name = "LevelMatrix"
+	holder.add_theme_constant_override("separation", 4)
+	var grid := GridContainer.new()
+	grid.name = "Cells"
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
 	var group := ButtonGroup.new()
 	group.allow_unpress = false
 	for level in levels:
 		var level_id: String = String(level.get("id", ""))
-		var stop := _level_stop(group, level_id, String(level.get("short", level.get("label", ""))))
+		var stop := _level_stop(group, level_id, String(level.get("label", "")))
 		stop.pressed.connect(_on_level_pressed.bind(level_id))
-		row.add_child(stop)
-	holder.add_child(row)
+		grid.add_child(stop)
+	holder.add_child(grid)
+	holder.add_child(_note_label("One spectrum: most machine top left, most human bottom right.", Brand.NEUTRAL))
 	return holder
 
 
-## One stop of the slider, drawn as the client's own chart box: the level's fill,
-## its name, and its icon in the band above. Toggling is the selection - the
-## chosen stop sits at full fill with a white edge, the others are held back at
-## two thirds - and the icon brightens with it, so the chosen picture is the
-## bright one. The four fills are the four boxes of "Autonomy levels at the
-## gate", which is what makes the control readable before its labels are.
+## One cell of the matrix, drawn as the client's own chart box: the level's
+## fill, its full name, and its icon in the band above. Toggling is the
+## selection - the chosen cell sits at full fill with a white edge, the others
+## are held back at two thirds - and the icon brightens with it, so the chosen
+## picture is the bright one. The four fills are the four boxes of "Autonomy
+## levels at the gate", which is what makes the control readable before its
+## labels are.
 func _level_stop(group: ButtonGroup, level_id: String, label: String) -> Button:
 	var touch: bool = DisplayServer.is_touchscreen_available()
 	var glyph_size := 34.0 if touch else 30.0
@@ -672,11 +670,13 @@ func _level_stop(group: ButtonGroup, level_id: String, label: String) -> Button:
 	button.button_group = group
 	button.focus_mode = Control.FOCUS_ALL
 	button.text = label
-	## Wrapping, because "HUMAN SIGN-OFF" is a wider word than the old "ASK
-	## FIRST" and the four stops have to share a narrow column on a phone.
+	## The full label wraps at word boundaries - "HUMAN SIGN-OFF" takes two
+	## lines in a half-width cell - and the cell is tall enough to hold the
+	## icon band plus those two lines without the text riding over the icon.
 	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.clip_text = true
 	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	button.custom_minimum_size = Vector2(0.0, 96.0 if touch else 82.0)
+	button.custom_minimum_size = Vector2(0.0, 132.0 if touch else 116.0)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", Brand.SIZE_SMALL)
 	button.add_theme_color_override("font_color", quiet_ink)
@@ -748,29 +748,6 @@ func _detail_panel() -> Array:
 	box.add_child(body)
 	panel.visible = false
 	return [panel, kicker, body]
-
-
-## The line the stops ride on. A quiet base line spans the whole spectrum; the
-## accent fill runs from the first stop to the selected one, so the position of
-## the selection on the spectrum is drawn, not implied. Stop centres are
-## computed from this control's own width, which matches the stop row's width
-## because both span the same column.
-class SpectrumTrack:
-	extends Control
-
-	var selected: int = -1
-	var stop_count: int = 4
-
-	func _draw() -> void:
-		if stop_count < 2:
-			return
-		var y := size.y * 0.5
-		var first := size.x * 0.5 / float(stop_count)
-		var last := size.x * (float(stop_count) - 0.5) / float(stop_count)
-		draw_line(Vector2(first, y), Vector2(last, y), Brand.NEUTRAL, 2.0)
-		if selected >= 0:
-			var to := size.x * (float(selected) + 0.5) / float(stop_count)
-			draw_line(Vector2(first, y), Vector2(to, y), Brand.ACCENT, 3.0)
 
 
 func _spectrum_title(text: String) -> Label:
