@@ -72,6 +72,21 @@ func ask_state() -> ScreenState:
 	return state
 
 
+## The mobile console's tabs (see Puzzle.info_tabs): SHIPMIND's pitch and its
+## case are one reading, the release log the other - views over the states
+## this bay already builds, not a second copy of them.
+func info_tabs() -> Array:
+	var shipmind_lines: Array = [
+		{"text": Shipmind.cargo_intro(), "tone": "shipmind"},
+		{"text": "", "tone": "rule"},
+	]
+	shipmind_lines.append_array(ask_state().lines)
+	return [
+		{"id": "shipmind", "label": "SHIPMIND", "lines": shipmind_lines},
+		{"id": "logs", "label": "LOGS", "lines": log_state().lines},
+	]
+
+
 func place(level_id: String) -> void:
 	if OperatingModel.level_index(level_id) < 0:
 		push_warning("Cargo received an unknown autonomy level '%s'." % level_id)
