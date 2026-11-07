@@ -70,8 +70,22 @@ func ask_state() -> ScreenState:
 	return state
 
 
-## The commit. ONE placement per decision; recording again replaces it, so
-## changing your mind is never a penalty.
+## The mobile console's tabs (see Puzzle.info_tabs): SHIPMIND's pitch and its
+## case are one reading, the raw scan the other. Both are views over the
+## states this bay already builds - the same words the desktop console prints,
+## never a second copy of them.
+func info_tabs() -> Array:
+	var shipmind_lines: Array = [
+		{"text": Shipmind.nav_intro(), "tone": "shipmind"},
+		{"text": "", "tone": "rule"},
+	]
+	shipmind_lines.append_array(ask_state().lines)
+	return [
+		{"id": "shipmind", "label": "SHIPMIND", "lines": shipmind_lines},
+		{"id": "logs", "label": "LOGS", "lines": sensors_state().lines},
+	]
+
+
 func place(level_id: String) -> void:
 	if OperatingModel.level_index(level_id) < 0:
 		push_warning("Navigation received an unknown autonomy level '%s'." % level_id)
