@@ -162,6 +162,15 @@ func choose(option_id: String) -> void:
 	push_warning("Puzzle '%s' ignored unknown option '%s'" % [puzzle_id, option_id])
 
 
+## The mobile decision screen's information tabs: an ordered list of
+## {id, label, lines:[{text, tone}]}. OVERVIEW (the dilemma) and SUMMARY (the
+## mandate and the tag note) are built by the renderer; a bay declares the
+## tabs between them - its evidence and SHIPMIND's case. The default is none,
+## which leaves the mobile console an overview-and-summary screen.
+func info_tabs() -> Array:
+	return []
+
+
 ## The spectrum commit. A bay that carries a spectrum block overrides this and
 ## records the placement; a bay without one never receives it.
 func place(level_id: String) -> void:
