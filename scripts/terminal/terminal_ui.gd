@@ -63,6 +63,11 @@ var _puzzle: Puzzle = null
 var _pending: Array[Dictionary] = []
 var _print_index: int = 0
 var _timer: Timer
+## The phone-landscape shell for the five decision bays. Owned and driven from
+## here so every entry point - console interactables, game.gd, the dev probe -
+## keeps talking to the one TerminalUI in the group; which layout the player
+## sees is a rendering decision, not a wiring one.
+var _mobile: MobileDecisionUI = null
 
 ## What the player has picked so far, in the ids the screen was written with.
 ## Held here rather than on ScreenState because a ScreenState is a description
@@ -76,7 +81,7 @@ var _owner_choice: String = ""
 var _levels_require_owner: Dictionary = {}
 ## The live line under the owner list, saying what the level picked right now
 ## requires. It is how the owner rule is read before the commit rather than
-## discovered when the commit is refused.
+## discovered when the commit refuses.
 var _owner_requirement: Label = null
 var _commit: Button = null
 ## The placement control's own state beyond the three ids: the entries each
@@ -112,6 +117,10 @@ func _ready() -> void:
 	Brand.apply_tui($Root/Panel/VBox/Columns/Readout/ReadoutTitle, Brand.SIZE_TUI_SMALL)
 	Brand.apply_tui($Root/Panel/VBox/Columns/Decision/DecisionTitle, Brand.SIZE_TUI_SMALL)
 	_build_close_button()
+	_mobile = MobileDecisionUI.new()
+	add_child(_mobile)
+	_mobile.placement_chosen.connect(_on_mobile_placement)
+	_mobile.option_chosen.connect(_on_option_pressed)
 	footer.text = FOOTER_TOUCH if touch_mode() else FOOTER_DESKTOP
 	root.visible = false
 
@@ -123,8 +132,8 @@ func touch_mode() -> bool:
 
 ## A way out of the terminal that does not depend on a keyboard.
 ##
-## The screen used to close only on ESC, which a touchscreen does not have: on a
-## phone the sole exit was an option button that happened to be labelled
+## The screen used to close only on ESC, which a touchscreen does not have: on
+## a phone the sole exit was an option button that happened to be labelled
 ## "close", and a screen is not obliged to offer one, so a console could strand
 ## the player with no way back. The button sits in the header, so it exists for
 ## every state, and it is built in code for the same reason the spectrum block
@@ -144,7 +153,7 @@ func _build_close_button() -> void:
 
 
 func is_open() -> bool:
-	return root.visible
+	return root.visible or (_mobile != null and _mobile.is_open())
 
 
 func open(puzzle: Puzzle) -> void:
@@ -161,6 +170,8 @@ func open(puzzle: Puzzle) -> void:
 
 
 func close() -> void:
+	if _mobile != null and _mobile.is_open():
+		_mobile.close()
 	if _puzzle != null and _puzzle.state_changed.is_connected(_render):
 		_puzzle.state_changed.disconnect(_render)
 	_puzzle = null
@@ -171,6 +182,14 @@ func close() -> void:
 
 
 func _render(state: ScreenState) -> void:
+	## A decision bay on a touch device renders in the mobile shell - including
+	## the spectrum-less states around it (the recorded read-back, the standing
+	## record), so a bay never switches layout mid-conversation. Everything
+	## else keeps the printout below.
+	if _mobile != null and (_mobile.is_open() or MobileDecisionUI.handles(_puzzle)):
+		root.visible = false
+		_mobile.render(state, _puzzle)
+		return
 	title_label.text = state.title
 	status_label.text = state.status
 	status_label.modulate = state.accent
@@ -228,7 +247,7 @@ func _reveal_all() -> void:
 		var entry: Dictionary = _pending[_print_index]
 		_print_index += 1
 		_add_line(String(entry.get("text", "")), String(entry.get("tone", "data")))
-	_snap_scroll()
+		_snap_scroll()
 
 
 func _add_line(value: String, tone: String) -> void:
@@ -371,9 +390,9 @@ func _icon_box(background: Color, border: Color) -> StyleBoxFlat:
 
 
 ## Draws the placement control: what the decision weighs, the four levels, the
-## guardrails and one commit button. Two ButtonGroups, not one - a level and a
-## guardrail are two different choices, and sharing a group would make picking a
-## guardrail clear the level.
+## guardrails and one commit button. Two ButtonGroups, not one - a level and
+## a guardrail are two different choices, and sharing a group would make picking
+## a guardrail clear the level.
 ##
 ## The three steps are numbered 1 / 2 / 3 in the machine voice, because they are
 ## the same three steps at every console in the ship and the crew should be able
@@ -401,8 +420,8 @@ func _draw_spectrum(block: Dictionary) -> void:
 	_level_entries = levels
 	for level in levels:
 		## Which levels need an owner is the block's own statement, and the
-		## default is the strict one: a level that does not say gets asked for an
-		## owner rather than being let through.
+		## default is the strict one: a level that does not say gets asked for
+		## an owner rather than being let through.
 		_levels_require_owner[String(level.get("id", ""))] = bool(level.get("requires_owner", true))
 	_spectrum_box.add_child(_level_slider(levels))
 	_level_detail = _detail_panel()
@@ -861,6 +880,15 @@ func _on_option_pressed(option_id: String) -> void:
 		_puzzle.choose(option_id)
 
 
+## The mobile shell's commit. Identical contract to the desktop spectrum's:
+## the level id goes to listeners and to the puzzle, which records it and emits
+## the read-back the shell then renders.
+func _on_mobile_placement(level_id: String) -> void:
+	placement_chosen.emit(level_id, "", "")
+	if _puzzle != null and is_instance_valid(_puzzle):
+		_puzzle.place(level_id)
+
+
 ## Reveals the readout on a click or a tap. Both are needed: a touchscreen never
 ## sends an InputEventMouseButton at all, so the click-only version of this left
 ## a phone unable to skip the typewriter and read the screen.
@@ -872,7 +900,7 @@ func _on_dim_input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not root.visible:
+	if not is_open():
 		return
 	if event.is_action_pressed("ui_cancel"):
 		close()
