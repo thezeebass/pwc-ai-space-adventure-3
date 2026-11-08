@@ -90,7 +90,7 @@ static var placements: Dictionary = {}
 static var touch_tutorial_done: bool = false
 ## The menu's TEXT SIZE choice (S 24 / M 28 / L 30), persisted with the save
 ## and read by every info popup through Brand.info_text_size.
-static var ui_text_size: int = 30
+static var ui_text_size: int = 24
 
 
 static func reset() -> void:
@@ -388,7 +388,7 @@ static func load_data() -> void:
 		placements = saved_placements
 		_restore_placements()
 	touch_tutorial_done = bool(data.get("touch_tutorial_done", false))
-	var saved_text_size: Variant = data.get("ui_text_size", 30)
+	var saved_text_size: Variant = data.get("ui_text_size", 24)
 	if saved_text_size is int and [24, 28, 30].has(int(saved_text_size)):
 		ui_text_size = int(saved_text_size)
 	Brand.info_text_size = ui_text_size

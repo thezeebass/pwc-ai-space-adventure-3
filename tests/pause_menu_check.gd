@@ -49,6 +49,22 @@ func _process(_d: float) -> bool:
 				_check(not labels.has("MAIN MENU"), "no MAIN MENU button")
 				_check(labels.has("LEADERBOARD"), "LEADERBOARD still present")
 				_check(_menu.is_open(), "the menu is open")
+				# The card reads wide and short: one header over two columns.
+				var card: PanelContainer = _menu.get_node("Root/Card")
+				var body: HBoxContainer = null
+				for child in card.get_child(0).get_children():
+					if child is HBoxContainer:
+						body = child
+				_check(body != null and body.get_child_count() == 2,
+					"the menu body is two columns")
+				_check(card.custom_minimum_size.x >= 500.0,
+					"the card reads wide (%d px)" % int(card.custom_minimum_size.x))
+				var s_chip: Button = null
+				for button in buttons:
+					if button.text == "S":
+						s_chip = button
+				_check(s_chip != null and s_chip.button_pressed,
+					"S is the default text size")
 				# A press on the dim - the gesture outside the card - closes it.
 				var dim: ColorRect = _menu.get_node("Root/Dim")
 				var tap := InputEventMouseButton.new()

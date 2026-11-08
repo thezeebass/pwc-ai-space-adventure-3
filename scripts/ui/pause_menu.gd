@@ -195,23 +195,43 @@ func _build() -> void:
 	_clamp_card_to_safe_zone()
 	card.get_viewport().size_changed.connect(_clamp_card_to_safe_zone)
 
+	## Two columns under one header: the card reads wide and short instead of
+	## a tall single stack that could outrun a landscape phone. The left column
+	## is the run's furniture (the board, the mixer); the right column is the
+	## run's controls (text size, reset).
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 10)
+	card.add_child(stack)
+
+	var header := VBoxContainer.new()
+	header.add_theme_constant_override("separation", 2)
+	stack.add_child(header)
+
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 26)
+	stack.add_child(body)
+
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 10)
-	card.add_child(column)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(column)
+
+	var side := VBoxContainer.new()
+	side.add_theme_constant_override("separation", 10)
+	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(side)
 
 	var kicker := Label.new()
 	kicker.text = "ADAMANT VERITY"
 	kicker.add_theme_font_size_override("font_size", 30)
 	kicker.add_theme_color_override("font_color", PAPAYA)
-	column.add_child(kicker)
+	header.add_child(kicker)
 
 	var title := Label.new()
 	title.text = "PAUSED"
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", WHITE)
-	column.add_child(title)
-
-	column.add_child(_spacer(8))
+	header.add_child(title)
 
 	# The live SHIPMIND standings, readable mid-run. The board replaces the
 	# card while it is up and hands the card back when it closes; the clock is
@@ -246,13 +266,13 @@ func _build() -> void:
 
 	## TEXT SIZE: how large the info popups read - SHIPMIND speech, prompts,
 	## the walkthrough cards. S and M dip under the reading floor on purpose;
-	## L is the floor itself.
-	column.add_child(_spacer(6))
+	## L is the floor itself. S is the default: the card stays compact and the
+	## screens leave the ship visible.
 	var size_caption := Label.new()
 	size_caption.text = "TEXT SIZE"
 	size_caption.add_theme_font_size_override("font_size", 30)
 	size_caption.add_theme_color_override("font_color", MUTED)
-	column.add_child(size_caption)
+	side.add_child(size_caption)
 	var size_row := HBoxContainer.new()
 	size_row.add_theme_constant_override("separation", 6)
 	var size_group := ButtonGroup.new()
@@ -281,9 +301,9 @@ func _build() -> void:
 		chip.pressed.connect(_on_text_size.bind(int(option[0])))
 		_text_size_buttons[int(option[0])] = chip
 		size_row.add_child(chip)
-	column.add_child(size_row)
+	side.add_child(size_row)
 
-	column.add_child(_spacer(10))
+	side.add_child(_spacer(10))
 	_reset_button = Button.new()
 	_reset_button.text = "RESET PROGRESS"
 	_reset_button.focus_mode = Control.FOCUS_NONE
@@ -300,7 +320,7 @@ func _build() -> void:
 	_reset_button.add_theme_stylebox_override("pressed", reset_hover)
 	_reset_button.add_theme_stylebox_override("focus", reset_rest)
 	_reset_button.pressed.connect(_on_reset_pressed)
-	column.add_child(_reset_button)
+	side.add_child(_reset_button)
 
 	# Reset is destructive, so it asks once, in place: the single button gives
 	# way to an explicit RESET EVERYTHING / CANCEL pair. A timer-based "press
@@ -309,7 +329,7 @@ func _build() -> void:
 	_reset_confirm.name = "ResetConfirm"
 	_reset_confirm.add_theme_constant_override("separation", 10)
 	_reset_confirm.visible = false
-	column.add_child(_reset_confirm)
+	side.add_child(_reset_confirm)
 
 	var reset_yes := Button.new()
 	reset_yes.name = "ResetEverything"
@@ -355,17 +375,18 @@ func _build() -> void:
 	_reset_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_reset_note.add_theme_font_size_override("font_size", 30)
 	_reset_note.add_theme_color_override("font_color", Color(0.55, 0.48, 0.44))
-	column.add_child(_reset_note)
+	side.add_child(_reset_note)
 
 
-## The safe zone: the card is centred, but its 380px minimum width would ride
-## the bezel on a narrow phone - it shrinks to live inside the margins.
+## The safe zone: the card is centred, and its two columns want width - it
+## grows to 560 where the screen allows, and shrinks to live inside the
+## margins on a narrow phone.
 func _clamp_card_to_safe_zone() -> void:
 	if _card == null or _root == null:
 		return
 	var view: Vector2 = _root.get_viewport_rect().size
 	var inset: float = Brand.safe_inset(view)
-	_card.custom_minimum_size.x = minf(380.0, maxf(view.x - inset * 2.0, 240.0))
+	_card.custom_minimum_size.x = minf(560.0, maxf(view.x - inset * 2.0, 320.0))
 
 
 ## The first press asks; it never wipes anything by itself. The explicit pair
