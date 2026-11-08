@@ -305,7 +305,7 @@ func _clear(node: Node) -> void:
 		child.queue_free()
 
 
-# --- Decision mode --------------------------------------------------------------------
+# --- Decision mode -----------------------------------------------------------------
 
 
 func _render_decision(state: ScreenState) -> void:
@@ -843,7 +843,7 @@ func _on_hold_timeout() -> void:
 	_hold_chip = null
 
 
-# --- Read-back mode ---------------------------------------------------------------------
+# --- Read-back mode --------------------------------------------------------------------
 
 
 ## Everything a decision bay emits without a spectrum block: the recorded
