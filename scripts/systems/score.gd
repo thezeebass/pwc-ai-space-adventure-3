@@ -170,7 +170,7 @@ static func decision_quality(system_id: String) -> float:
 	return (consistent + coherent) * 0.5
 
 
-# --- The run's total --------------------------------------------------------------
+# --- The run's total -------------------------------------------------------------
 
 
 ## What one decision awarded. A decision nobody has placed awards nothing, which
@@ -200,8 +200,7 @@ static func total() -> int:
 	return placed_points()
 
 
-## The score's ceiling as it stands
-##: 100 points per decision actually placed.
+## The score's ceiling as it stands: 100 points per decision actually placed.
 ## A session with one decision placed is out of 100, not out of 500, because the
 ## four decisions nobody has reached yet are not a deficit.
 static func max_total() -> int:
@@ -322,17 +321,10 @@ static func proportionality_line(system_id: String) -> String:
 
 ## The reflection: what was placed, what it means in practice, and whether it
 ## fits the mandate and the stakes. This is what the reflection card and the
-## decision's read-back screen print.
-## RECALIBRATION NOTE: this tail was restored from the previous scoring copy -
-## the text pass above replaced the puzzle and SHIPMIND voices, and this
-## section was left half-rewritten upstream. It is kept so the read-backs and
-## the reflection card keep compiling and reading; rewrite the language here
-## when the recalibration pass reaches it.
-## The recalibration pass also calls in with a second flag (the placed-state
-## read-backs pass false, the kiosk record calls with one argument). Its
-## meaning is still landing upstream, so it is accepted here and set aside -
-## both call sites compile and read exactly as they did before the pass.
-static func reflection_lines(system_id: String, recalibration_flag := false) -> Array[String]:
+## decision's read-back screen print. The per-decision read-back passes
+## include_mandate false: the kiosk holds the mandate, and echoing it after
+## every decision only made the assessment screen scroll.
+static func reflection_lines(system_id: String, include_mandate := true) -> Array[String]:
 	var out: Array[String] = []
 	if not GameState.has_placement(system_id):
 		out.append("NOT PLACED   -   nobody has made this decision yet.")
@@ -346,7 +338,8 @@ static func reflection_lines(system_id: String, recalibration_flag := false) -> 
 	out.append("MATCHES YOUR MANDATE  %d percent   -   %s." % [percent(consistency(system_id)), consistency_phrase(system_id)])
 	out.append("FITS THE STAKES       %d percent   -   %s." % [percent(coherence(system_id)), coherence_phrase(system_id)])
 	out.append(proportionality_line(system_id))
-	out.append("YOUR MANDATE   %s" % OperatingModel.mandate_line())
+	if include_mandate:
+		out.append("YOUR MANDATE   %s" % OperatingModel.mandate_line())
 	return out
 
 
