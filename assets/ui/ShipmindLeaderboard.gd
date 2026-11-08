@@ -66,6 +66,12 @@ var _entry_row: HBoxContainer
 var _name_edit: LineEdit
 var _status: Label
 var _cursor: ColorRect
+## The board's content can outrun the frame's window on a phone, so it rides
+## in a drag-to-scroll pane: a vertical drag pans it, and a release without a
+## drag is still the "tap anywhere to leave" tap.
+var _scroll: ScrollContainer
+var _scroll_dragged: bool = false
+var _scroll_press_at: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -194,13 +200,26 @@ func _notification(what: int) -> void:
 # --- UI construction ----------------------------------------------------------
 
 func _build_ui() -> void:
+	## The scroll pane: the header, the table and the callsign entry together
+	## read taller than the glass on a phone, and the entry row sat below the
+	## frame where no thumb could reach it. A vertical drag pans the whole
+	## board; the scrollbar stays hidden - the CRT carries no chrome.
+	_scroll = ScrollContainer.new()
+	_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	_scroll.gui_input.connect(_on_scroll_input)
+	_text_root.add_child(_scroll)
+
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", int(40 * _ui_scale))
 	margin.add_theme_constant_override("margin_right", int(40 * _ui_scale))
 	margin.add_theme_constant_override("margin_top", int(28 * _ui_scale))
 	margin.add_theme_constant_override("margin_bottom", int(24 * _ui_scale))
-	_text_root.add_child(margin)
+	_scroll.add_child(margin)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", int(6 * _ui_scale))
@@ -358,14 +377,34 @@ func _build_ui() -> void:
 
 	## The text layer is click-transparent to its bones: taps fall through to
 	## the screen itself, which closes on them - while the buttons and the
-	## callsign field keep their own handling.
+	## callsign field keep their own handling. The scroll pane is exempt too:
+	## it must keep the drags that pan the board, and it hands back the taps
+	## that mean "leave".
 	var stack: Array[Node] = [_text_root]
 	while not stack.is_empty():
 		var node: Node = stack.pop_back()
 		for child in node.get_children():
 			stack.append(child)
-		if node is Control and not (node is Button or node is LineEdit):
+		if node is Control and not (node is Button or node is LineEdit \
+				or node is ScrollContainer):
 			(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+## The scroll pane's own input: a press-and-release that never became a drag is
+## the same stray tap the screen answers by closing (attract mode only - mid
+## entry a stray thumb must not throw the run's result away). A press that
+## travels is a scroll, and the pane pans it.
+func _on_scroll_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_scroll_press_at = event.position
+			_scroll_dragged = false
+		elif not _scroll_dragged and not _entry_row.visible:
+			closed.emit()
+	elif event is InputEventMouseMotion \
+			and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+		if event.position.distance_to(_scroll_press_at) > 12.0:
+			_scroll_dragged = true
 
 
 # --- Client signal handlers ---------------------------------------------------
