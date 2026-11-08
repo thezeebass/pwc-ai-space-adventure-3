@@ -88,6 +88,10 @@ static var placements: Dictionary = {}
 ## run's, so reset() leaves it alone: once learned, the controls are never
 ## re-taught. First-time players start with the move stick only.
 static var touch_tutorial_done: bool = false
+## The console lesson is its own persisted step: the USE IT card is taught
+## once - the first time a console actually opens - and stays taught until a
+## full wipe, independent of the sticks walkthrough.
+static var touch_console_taught: bool = false
 ## The menu's TEXT SIZE choice (S 24 / M 28 / L 30), persisted with the save
 ## and read by every info popup through Brand.info_text_size.
 static var ui_text_size: int = 24
@@ -310,6 +314,7 @@ static func has_save() -> bool:
 static func clear_save() -> void:
 	reset()
 	touch_tutorial_done = false
+	touch_console_taught = false
 	if not has_save():
 		return
 	var err: int = DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
@@ -334,6 +339,7 @@ static func save() -> void:
 		},
 		"placements": placements,
 		"touch_tutorial_done": touch_tutorial_done,
+		"touch_console_taught": touch_console_taught,
 		"ui_text_size": ui_text_size,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -388,6 +394,7 @@ static func load_data() -> void:
 		placements = saved_placements
 		_restore_placements()
 	touch_tutorial_done = bool(data.get("touch_tutorial_done", false))
+	touch_console_taught = bool(data.get("touch_console_taught", false))
 	var saved_text_size: Variant = data.get("ui_text_size", 24)
 	if saved_text_size is int and [24, 28, 30].has(int(saved_text_size)):
 		ui_text_size = int(saved_text_size)

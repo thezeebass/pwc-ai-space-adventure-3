@@ -155,7 +155,9 @@ func _pop_in(base: Control) -> void:
 ## centre - a directive title, one instruction in large type and a progress
 ## bar - instead of a small line at the bottom nobody reads while steering.
 ## After the walkthrough the card returns only while a console is in reach,
-## so the tap instruction arrives with the target.
+## so the tap instruction arrives with the target - and only until the crew
+## have used a console once: the lesson is its own persisted step, taught
+## once, never repeated until a full wipe hands it back.
 func _refresh_hint() -> void:
 	match _tutorial_stage:
 		TutorialStage.MOVE_ONLY:
@@ -164,7 +166,9 @@ func _refresh_hint() -> void:
 			_show_card("LOOK AROUND",
 				"Drag the stick to look around", 0.0)
 		TutorialStage.BOTH:
-			if _console_in_focus:
+			if GameState.touch_console_taught:
+				_hide_card()
+			elif _console_in_focus:
 				if not _console_prompt_open:
 					_show_card("USE IT", "Tap the console to use it", -1.0)
 					_console_prompt_open = true
@@ -238,7 +242,9 @@ var _arrow_bob: Tween
 
 ## The teaching line follows the crew's aim: the player reports when the ray
 ## lands on an interactable, and the hint swaps to the tap instruction while
-## it does. Wired once, the first time the layer is asked for anything.
+## it does. Wired once, the first time the layer is asked for anything. The
+## console lesson latches on the terminal actually opening - a tap that misses
+## the box teaches nothing.
 func _wire_aim() -> void:
 	if _aim_wired:
 		return
@@ -246,6 +252,22 @@ func _wire_aim() -> void:
 	var player: Node = get_tree().get_first_node_in_group("player")
 	if player != null and player.has_signal("aim_target_changed"):
 		player.aim_target_changed.connect(_on_aim_target_changed)
+	for terminal in get_tree().get_nodes_in_group("terminal_ui"):
+		if terminal.has_signal("opened") \
+				and not terminal.opened.is_connected(_on_console_used):
+			terminal.opened.connect(_on_console_used)
+
+
+## The first console to open teaches the lesson for good: the card goes away
+## and the flag persists, so no crew is re-taught what they have done - until
+## a full wipe clears it with the rest of the walkthrough.
+func _on_console_used() -> void:
+	if GameState.touch_console_taught:
+		return
+	GameState.touch_console_taught = true
+	GameState.save()
+	_console_prompt_open = false
+	_hide_card()
 
 
 func _on_aim_target_changed(in_focus: bool) -> void:
