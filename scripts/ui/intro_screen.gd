@@ -182,13 +182,20 @@ func _advance() -> void:
 	if _done:
 		return
 	if _beat >= BEATS.size() - 1:
+		## Every beat has now been on the screen: the telling is earned, and
+		## later tellings may be skipped.
+		GameState.intro_seen_once = true
+		GameState.save()
 		_finish()
 		return
 	_show_beat(_beat + 1)
 
 
+## The telling finishes by being read through - or, once the crew have seen
+## all three beats at least once, by skipping. A first telling cannot skip:
+## the flag is exactly what the crew have just earned by reaching this line.
 func _finish() -> void:
-	if _done:
+	if _done or not GameState.intro_seen_once:
 		return
 	_done = true
 	var tween := create_tween()
@@ -581,6 +588,9 @@ func _build_words() -> void:
 	skip_button.add_theme_stylebox_override("pressed", flat)
 	skip_button.add_theme_stylebox_override("focus", flat)
 	skip_button.pressed.connect(_finish)
+	## The skip is earned: until the crew have read all three beats once, the
+	## button stays off the screen and ESC answers nothing.
+	skip_button.visible = GameState.intro_seen_once
 	actions.add_child(skip_button)
 
 	column.add_child(_gap(10))
