@@ -159,7 +159,7 @@
 					rotate.style.display = 'flex';
 				} else {
 					rotate.style.display = 'none';
-			}
+				}
 			}
 			check();
 			window.addEventListener('resize', check);
@@ -232,7 +232,7 @@
 
 			setInterval(function () {
 				if (!downloading || failed) return;
-					hintIndex = (hintIndex + 1) % hints.length;
+				hintIndex = (hintIndex + 1) % hints.length;
 				detail.textContent = hints[hintIndex];
 			}, 5200);
 
