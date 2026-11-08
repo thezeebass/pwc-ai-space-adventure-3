@@ -77,9 +77,9 @@ static var music_muted: bool = false
 static var ambience_muted: bool = false
 static var sfx_muted: bool = false
 
-static var music_volume: float = 0.30
-static var ambience_volume: float = 0.20
-static var sfx_volume: float = 0.30
+static var music_volume: float = 0.10
+static var ambience_volume: float = 0.15
+static var sfx_volume: float = 0.80
 
 ## One-shots are spread over the scene's voice players so a console opening over
 ## a door does not cut the first sound short.
