@@ -63,13 +63,16 @@ func fetch_rank_preview(score: int, mode := "default") -> void:
 
 ## Queue a score for submission. Safe to call with no connectivity: the
 ## payload is written to disk and retried on the next launch or next submit.
-func submit_score(player_name: String, score: int, mode := "default", completion_seconds := 0) -> void:
+func submit_score(player_name: String, score: int, mode := "default", completion_seconds := 0, email := "") -> void:
 	var payload := {
 		"name": player_name.strip_edges(),
 		"score": score,
 		"mode": mode,
 		"completion_seconds": completion_seconds,
 		"submission_id": _uuid4(),
+		## The email is stored with the entry and never echoed back - the board
+		## reads rank, pilot and score only.
+		"email": email.strip_edges(),
 	}
 	_queue.append(payload)
 	_save_queue()

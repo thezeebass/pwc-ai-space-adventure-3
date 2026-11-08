@@ -58,7 +58,7 @@ function cleanSeconds(raw) {
 }
 
 // --- blob store (one JSON blob per mode) --------------------------------------
-// shape: { entries: [{player_name, score, created_at, submission_id}], seen: {id: {t, e}} }
+// shape: { entries: [{player_name, score, created_at, submission_id, email}], seen: {id: {t, e}} }
 
 async function loadBoard(store, mode) {
   const board = await store.get(`board:${mode}`, { type: "json" });
@@ -82,6 +82,18 @@ const withRanks = (entries) => entries.map((e, i) => ({ ...e, rank: i + 1 }));
 
 const projectedRank = (entries, score) =>
   1 + entries.filter((e) => e.score > score).length;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Stored with the entry, never echoed: publicEntry's whitelist keeps it off
+// every response.
+const cleanEmail = (v) => {
+  const s = String(v ?? "")
+    .trim()
+    .slice(0, 120);
+  if (s === "") return "";
+  return EMAIL_RE.test(s) ? s : null;
+};
 
 const publicEntry = ({ player_name, score, created_at, rank }) => ({
   player_name,
@@ -132,11 +144,14 @@ async function postSubmit(store, req) {
   if (score === null) return bad("score must be an integer");
 
   const mode = cleanMode(body?.mode);
+  const email = cleanEmail(body?.email);
+  if (email === null) return bad("email address is not valid");
   const entry = {
     player_name: cleanName(body?.name),
     score,
     created_at: new Date().toISOString(),
     submission_id: submissionId,
+    email,
   };
 
   const board = await loadBoard(store, mode);

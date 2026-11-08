@@ -48,20 +48,23 @@ func _process(_delta: float) -> bool:
 					quit(1)
 					return true
 		3:
-			# Then the real input path: a synthetic click through the pipeline.
+			# Then the real input path: a synthetic click through the pipeline,
+			# aimed at the text pane's own centre, wherever the art maps it.
 			if _ticks > 220 and not _input_sent:
 				_input_sent = true
+				var pane: Rect2 = _board._text_root.get_global_rect()
+				var spot: Vector2 = pane.get_center()
 				var down2 := InputEventMouseButton.new()
 				down2.button_index = MOUSE_BUTTON_LEFT
 				down2.pressed = true
-				down2.position = Vector2(140, 90)
-				down2.global_position = Vector2(140, 90)
+				down2.position = spot
+				down2.global_position = spot
 				Input.parse_input_event(down2)
 				var up2 := InputEventMouseButton.new()
 				up2.button_index = MOUSE_BUTTON_LEFT
 				up2.pressed = false
-				up2.position = Vector2(140, 90)
-				up2.global_position = Vector2(140, 90)
+				up2.position = spot
+				up2.global_position = spot
 				Input.parse_input_event(up2)
 			if _closed:
 				print("TAP CHECK: PASS — the tap closed the board (input path)")

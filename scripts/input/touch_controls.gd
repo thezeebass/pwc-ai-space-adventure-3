@@ -96,6 +96,7 @@ func _ready() -> void:
 	_center_knob(move_knob, move_radius, move_knob_radius)
 	_center_knob(look_knob, look_radius, look_knob_radius)
 	get_viewport().size_changed.connect(_layout_sticks)
+	get_viewport().size_changed.connect(_place_card)
 	# The aim signal lives on the player, which may not be in the tree yet:
 	# the wiring defers one frame so the group lookup always finds it.
 	call_deferred("_wire_aim")
@@ -180,6 +181,7 @@ func _refresh_hint() -> void:
 ## a progress bar (-1 hides the bar). The arrow is separate - it points at a
 ## stick, not at text.
 func _show_card(title: String, text: String, progress: float) -> void:
+	_place_card()
 	tutorial_title.text = title
 	tutorial_text.text = text
 	## The card reads at the menu's TEXT SIZE choice; its title stays a step
@@ -195,6 +197,39 @@ func _show_card(title: String, text: String, progress: float) -> void:
 	if not tutorial_card.visible:
 		tutorial_card.visible = true
 		_pop_in(tutorial_card)
+
+
+## Where the card lives: below SHIPMIND's dialogue - the dialogue owns the
+## band under the mandate strip, and a card on it reads over words - and
+## between the sticks when both are up, narrowing to the clear pocket the two
+## rings leave. Never past the bottom edge.
+func _place_card() -> void:
+	if tutorial_card == null:
+		return
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	## The height is the authored card's, not the label's reported minimum: an
+	## autowrapped line squeezed to its measure width can report a towering
+	## minimum, and the card would grow to meet it.
+	var card_h: float = 132.0
+	var top: float = view.y * 0.30
+	var hud: Node = get_node_or_null("../HUD")
+	var subtitle: Control = hud.get("subtitle") if hud != null else null
+	if subtitle != null and subtitle.visible:
+		top = subtitle.global_position.y + subtitle.size.y + 12.0
+	var card_w: float = 456.0
+	if move_base.visible and look_base.visible:
+		var left_edge: float = stick_margin.x + move_radius * 2.0
+		var right_edge: float = view.x - stick_margin.x - look_radius * 2.0
+		card_w = clampf(right_edge - left_edge, 300.0, 456.0)
+	top = clampf(top, 8.0, view.y - card_h - 8.0)
+	tutorial_card.anchor_left = 0.5
+	tutorial_card.anchor_right = 0.5
+	tutorial_card.anchor_top = 0.0
+	tutorial_card.anchor_bottom = 0.0
+	tutorial_card.offset_left = -card_w * 0.5
+	tutorial_card.offset_right = card_w * 0.5
+	tutorial_card.offset_top = top
+	tutorial_card.offset_bottom = top + card_h
 
 
 func _hide_card() -> void:
@@ -286,16 +321,6 @@ func _advance_tutorial() -> void:
 	if _tutorial_stage == TutorialStage.BOTH:
 		GameState.touch_tutorial_done = true
 		GameState.save()
-
-
-## The crew reached for the look stick on their own: the walkthrough's job is
-## done. Ends every stage at once, hides the card and remembers it.
-func _finish_tutorial_now() -> void:
-	_tutorial_stage = TutorialStage.BOTH
-	_apply_tutorial_stage()
-	_hide_card()
-	GameState.touch_tutorial_done = true
-	GameState.save()
 
 
 ## The sticks rest at the bottom corners, and teleport to under a thumb that
@@ -414,14 +439,15 @@ func _handle_press(index: int, position: Vector2, pressed: bool) -> void:
 		# Every touch is a candidate tap first: it only becomes a stick once the
 		# thumb moves, so a quick touch-and-release is always a use, never a
 		# stick that briefly appeared.
-		# A thumb landing on the right half ends the walkthrough at once: the
-		# look stick appears under the thumb's next drag, and no instruction
-		# card stays up while the crew are already reaching for it.
-		if _tutorial_stage != TutorialStage.BOTH:
+		# A thumb landing on the right half brings the look stick out at once -
+		# visible and ready for when the walk stage hands over - without
+		# ending the walkthrough early.
+		if _tutorial_stage == TutorialStage.MOVE_ONLY:
 			var view: Vector2 = get_viewport().get_visible_rect().size
 			if position.x >= view.x * 0.5 \
 					and position.y > view.y * (1.0 - stick_grab_region):
-				_finish_tutorial_now()
+				look_base.visible = true
+				_pop_in(look_base)
 		_pending_touch = index
 		_pending_start = position
 		return
@@ -480,17 +506,12 @@ func _claim_stick(index: int, position: Vector2) -> void:
 		_move_center = position
 		move_base.position = position - Vector2(move_radius, move_radius)
 		_center_knob(move_knob, move_radius, move_knob_radius)
-		if _tutorial_stage == TutorialStage.MOVE_ONLY:
-			_finish_tutorial_now()
-	elif in_grab and _look_touch == -1 and position.x >= view.x * 0.5:
-		if _tutorial_stage == TutorialStage.MOVE_ONLY:
-			_advance_tutorial()
+	elif in_grab and _look_touch == -1 and position.x >= view.x * 0.5 \
+			and _tutorial_stage != TutorialStage.MOVE_ONLY:
 		_look_touch = index
 		_look_center = position
 		look_base.position = position - Vector2(look_radius, look_radius)
 		_center_knob(look_knob, look_radius, look_knob_radius)
-		if _tutorial_stage == TutorialStage.LOOK_ONLY:
-			_finish_tutorial_now()
 
 
 ## A released stick glides back to its corner instead of staying where the

@@ -35,17 +35,12 @@ const WINDOW_RECT := Rect2(742, 279, 1268, 959)
 const DESIGN_WINDOW_HEIGHT := 700.0
 const FONT_FLOOR := 30
 const MAX_ROWS := 10
-const ACTIVE_WINDOW_SECONDS := 900   # submissions younger than this read "ACTIVE"
 
 const COL_BG := Color("0b0805")
 const COL_PHOSPHOR := Color("ffb343")
 const COL_BRIGHT := Color("ffd97a")
 const COL_DIM := Color("b26a1e")
 const COL_FAINT := Color("6e4a1d")
-
-# Decorative until the API carries a real ship_type field: a stable per-pilot
-# hull assignment, so the same callsign always "flies" the same frame.
-const SHIP_FRAMES := ["O-Prowler", "Gold-Ares", "Rust-Vane", "C-Mothership", "Red-Vane", "Pink-Stern"]
 
 var _font: Font
 var _ui_scale := 1.0
@@ -64,6 +59,12 @@ var _projection: Label
 var _grid: GridContainer
 var _entry_row: HBoxContainer
 var _name_edit: LineEdit
+## The three details the crew enter, kept so a re-opened sheet starts where
+## they left off, and the formatted name the entry is logged under.
+var _first_name: String = ""
+var _surname: String = ""
+var _email: String = ""
+var _pilot_name: String = ""
 var _status: Label
 var _cursor: ColorRect
 ## The board's content can outrun the frame's window on a phone, so it rides
@@ -141,12 +142,14 @@ func present_result(score: int, seconds: int, mode := "default") -> void:
 	_projection.text = ""
 	_status_line("RUN COMPLETE — SCORE %s" % _fmt(score))
 	_entry_row.visible = true
-	_name_edit.text = ""
-	## Desktops take the caret outright. A web keyboard answers only a focus
-	## that a gesture started: a programmatic focus raises nothing, so on the
-	## web the crew tap the field themselves and that tap does the focusing.
-	if not OS.has_feature("web"):
-		_name_edit.grab_focus()
+	_pilot_name = ""
+	_email = ""
+	## Desktops take the caret outright. On the web the crew tap the details
+	## button and the page's own sheet answers with the keyboard.
+	if _name_edit != null:
+		_name_edit.text = ""
+		if not OS.has_feature("web"):
+			_name_edit.grab_focus()
 	_client().fetch_leaderboard(mode, MAX_ROWS)
 	_client().fetch_rank_preview(score, mode)
 
@@ -256,59 +259,49 @@ func _build_ui() -> void:
 	_projection = _mk_label("", 20, COL_DIM)
 	vbox.add_child(_projection)
 
-	# Table.
+	# Table — three columns: the rank, the pilot, the score. The ship type and
+	# the docking status read as clutter on a phone; the run's numbers are the
+	# board.
 	_grid = GridContainer.new()
-	_grid.columns = 5
+	_grid.columns = 3
 	_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_grid.add_theme_constant_override("h_separation", int(20 * _ui_scale))
 	_grid.add_theme_constant_override("v_separation", int(4 * _ui_scale))
 	vbox.add_child(_grid)
-	_add_row_cells(["RANK", "PILOT NAME", "SHIP TYPE", "SCORE", "STATUS"], COL_DIM, 20, false)
+	_add_row_cells(["RANK", "PILOT", "SCORE"], COL_DIM, 20, false)
 
-	# Callsign entry — hidden unless we're presenting a result.
+	# Details entry — hidden unless we're presenting a result. On the web the
+	# crew enter three details - first name, surname and an email address -
+	# through the page's own keyboard sheet; the name comes back formatted and
+	# the entry submits itself. Native builds keep the plain field.
 	_entry_row = HBoxContainer.new()
 	_entry_row.add_theme_constant_override("separation", int(16 * _ui_scale))
 	_entry_row.visible = false
 	vbox.add_child(_entry_row)
-	_entry_row.add_child(_mk_label("ENTER CALLSIGN:", 24, COL_PHOSPHOR))
+	_entry_row.add_child(_mk_label("ENTER YOUR DETAILS:", 24, COL_PHOSPHOR))
 
-	_name_edit = LineEdit.new()
-	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_name_edit.max_length = 24
-	_name_edit.placeholder_text = "—"
-	_name_edit.caret_blink = true
-	_name_edit.custom_minimum_size = Vector2(0, int(40 * _ui_scale))
-	## The tap that focuses the field on the web - the keyboard answers a
-	## gesture, not a flag (see _on_name_input).
-	_name_edit.gui_input.connect(_on_name_input)
-	if _font:
-		_name_edit.add_theme_font_override("font", _font)
-	_name_edit.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), FONT_FLOOR))
-	_name_edit.add_theme_color_override("font_color", COL_BRIGHT)
-	_name_edit.add_theme_color_override("caret_color", COL_PHOSPHOR)
-	_name_edit.add_theme_stylebox_override("normal", _field_style(COL_FAINT))
-	_name_edit.add_theme_stylebox_override("focus", _field_style(COL_PHOSPHOR))
-	_name_edit.text_submitted.connect(func(_t): _on_log_entry())
-	_entry_row.add_child(_name_edit)
-
-	var log_button := Button.new()
-	log_button.text = "LOG ENTRY"
-	log_button.focus_mode = Control.FOCUS_NONE
-	log_button.custom_minimum_size = Vector2(0, int(40 * _ui_scale))
-	if _font:
-		log_button.add_theme_font_override("font", _font)
-	log_button.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), FONT_FLOOR))
-	log_button.add_theme_color_override("font_color", COL_BG)
-	log_button.add_theme_color_override("font_hover_color", COL_BG)
-	var btn_style := StyleBoxFlat.new()
-	btn_style.bg_color = COL_PHOSPHOR
-	btn_style.content_margin_left = 24
-	btn_style.content_margin_right = 24
-	log_button.add_theme_stylebox_override("normal", btn_style)
-	log_button.add_theme_stylebox_override("hover", btn_style)
-	log_button.add_theme_stylebox_override("pressed", btn_style)
-	log_button.pressed.connect(_on_log_entry)
-	_entry_row.add_child(log_button)
+	if OS.has_feature("web"):
+		var details_button := Button.new()
+		details_button.text = "TAP TO ENTER DETAILS"
+		details_button.focus_mode = Control.FOCUS_NONE
+		details_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		details_button.custom_minimum_size = Vector2(0, int(40 * _ui_scale))
+		if _font:
+			details_button.add_theme_font_override("font", _font)
+		details_button.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), FONT_FLOOR))
+		details_button.add_theme_color_override("font_color", COL_BG)
+		details_button.add_theme_color_override("font_hover_color", COL_BG)
+		var btn_style := StyleBoxFlat.new()
+		btn_style.bg_color = COL_PHOSPHOR
+		btn_style.content_margin_left = 24
+		btn_style.content_margin_right = 24
+		details_button.add_theme_stylebox_override("normal", btn_style)
+		details_button.add_theme_stylebox_override("hover", btn_style)
+		details_button.add_theme_stylebox_override("pressed", btn_style)
+		details_button.pressed.connect(_open_page_keyboard)
+		_entry_row.add_child(details_button)
+	else:
+		_build_native_entry_row()
 
 	vbox.add_child(_rule())
 
@@ -399,21 +392,67 @@ func _build_ui() -> void:
 			(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-## The scroll pane's own input: a press-and-release that never became a drag is
-## the same stray tap the screen answers by closing (attract mode only - mid
-## entry a stray thumb must not throw the run's result away). A press that
-## travels is a scroll, and the pane pans it.
+## The scroll pane's own input: on a mouse, a press-and-release that never
+## became a drag is the stray tap the screen answers by closing (attract mode
+## only - mid entry a stray thumb must not throw the run's result away). On a
+## touchscreen the release closes nothing: a finger's travel is how the board
+## scrolls, and the CLOSE button is the way out - a touch that pans must never
+## read as a tap on release.
 func _on_scroll_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			_scroll_press_at = event.position
 			_scroll_dragged = false
-		elif not _scroll_dragged and not _entry_row.visible:
+		elif not _scroll_dragged and not _entry_row.visible \
+				and not DisplayServer.is_touchscreen_available():
 			closed.emit()
 	elif event is InputEventMouseMotion \
 			and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
 		if event.position.distance_to(_scroll_press_at) > 12.0:
 			_scroll_dragged = true
+	elif event is InputEventScreenDrag:
+		if event.position.distance_to(_scroll_press_at) > 12.0:
+			_scroll_dragged = true
+
+
+## Native builds (outside the browser) keep the plain field and the LOG
+## button: a physical keyboard needs no page-level sheet.
+func _build_native_entry_row() -> void:
+	_name_edit = LineEdit.new()
+	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_name_edit.max_length = 24
+	_name_edit.placeholder_text = "—"
+	_name_edit.caret_blink = true
+	_name_edit.custom_minimum_size = Vector2(0, int(40 * _ui_scale))
+	_name_edit.text_changed.connect(func(t): _pilot_name = t.strip_edges())
+	if _font:
+		_name_edit.add_theme_font_override("font", _font)
+	_name_edit.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), FONT_FLOOR))
+	_name_edit.add_theme_color_override("font_color", COL_BRIGHT)
+	_name_edit.add_theme_color_override("caret_color", COL_PHOSPHOR)
+	_name_edit.add_theme_stylebox_override("normal", _field_style(COL_FAINT))
+	_name_edit.add_theme_stylebox_override("focus", _field_style(COL_PHOSPHOR))
+	_name_edit.text_submitted.connect(func(_t): _on_log_entry())
+	_entry_row.add_child(_name_edit)
+
+	var log_button := Button.new()
+	log_button.text = "LOG ENTRY"
+	log_button.focus_mode = Control.FOCUS_NONE
+	log_button.custom_minimum_size = Vector2(0, int(40 * _ui_scale))
+	if _font:
+		log_button.add_theme_font_override("font", _font)
+	log_button.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), FONT_FLOOR))
+	log_button.add_theme_color_override("font_color", COL_BG)
+	log_button.add_theme_color_override("font_hover_color", COL_BG)
+	var btn_style := StyleBoxFlat.new()
+	btn_style.bg_color = COL_PHOSPHOR
+	btn_style.content_margin_left = 24
+	btn_style.content_margin_right = 24
+	log_button.add_theme_stylebox_override("normal", btn_style)
+	log_button.add_theme_stylebox_override("hover", btn_style)
+	log_button.add_theme_stylebox_override("pressed", btn_style)
+	log_button.pressed.connect(_on_log_entry)
+	_entry_row.add_child(log_button)
 
 
 # --- Client signal handlers ---------------------------------------------------
@@ -426,10 +465,8 @@ func _on_board(entries: Array, total_players: int) -> void:
 			break
 		var pilot := String(entry.get("player_name", "—"))
 		var rank := int(entry.get("rank", 0))
-		var status := _status_from(String(entry.get("created_at", "")))
 		_add_row_cells(
-			["%02d" % rank, pilot.to_upper(), _ship_type_for(pilot),
-			 _fmt(int(entry.get("score", 0))), status],
+			["%02d" % rank, pilot.to_upper(), _fmt(int(entry.get("score", 0)))],
 			COL_PHOSPHOR, 24, true, rank, pilot)
 	if _status.text.begins_with("FETCHING"):
 		_status_line("STANDINGS CURRENT")
@@ -477,74 +514,58 @@ func _connect_client() -> void:
 	c.request_failed.connect(_on_failed)
 
 
-## The tap on the callsign field. On a touch device the OS keyboard comes from
-## the page: Godot's own web keyboard is experimental and loses the focus race
-## with the canvas, so the tap summons a real DOM input the shell hosts, and
-## the answer comes back through the callback. On a desktop the field keeps
-## the caret and the physical keyboard answers as always.
-func _on_name_input(event: InputEvent) -> void:
-	if not OS.has_feature("web"):
-		return
-	var touch: bool = DisplayServer.is_touchscreen_available()
-	var pressed: bool = (event is InputEventMouseButton and event.pressed \
-			and event.button_index == MOUSE_BUTTON_LEFT) \
-			or (event is InputEventScreenTouch and event.pressed)
-	if not pressed:
-		return
-	if touch:
-		_open_page_keyboard()
-	else:
-		## A desktop browser: the caret alone is enough, but the engine's
-		## handlers still make the canvas take focus back around the tap, so
-		## the tap drops and re-grabs focus, and re-raises the (harmless) VK.
-		_name_edit.release_focus()
-		_name_edit.grab_focus()
-		_raise_keyboard.call_deferred()
-		get_tree().create_timer(0.25).timeout.connect(_raise_keyboard)
-
-
-## Opens the shell-hosted callsign input. Runs inside the tap's gesture - the
-## browser guarantees the keyboard for a focus made there.
+## Opens the shell-hosted details sheet: first name, surname, and an email
+## address the page syntax-checks. Runs inside the tap's gesture - the browser
+## guarantees the keyboard for a focus made there.
 func _open_page_keyboard() -> void:
 	if not bool(JavaScriptBridge.eval("!!window.pwcKeyboard")):
-		push_warning("The page offers no callsign input; typing stays on the field.")
+		push_warning("The page offers no details sheet; the entry cannot be logged.")
 		return
 	_js_done = JavaScriptBridge.create_callback(_on_page_keyboard_done)
 	var js := JavaScriptBridge.get_interface("window")
 	js.pwcKeyboardDone = _js_done
-	JavaScriptBridge.eval("window.pwcKeyboard.open(%s, %d, window.pwcKeyboardDone);"
-		% [JSON.stringify(_name_edit.text), _name_edit.max_length])
+	var fields := JSON.stringify([
+		{"label": "FIRST NAME", "value": _first_name, "kind": "text"},
+		{"label": "SURNAME", "value": _surname, "kind": "text"},
+		{"label": "EMAIL ADDRESS", "value": _email, "kind": "email"},
+	])
+	JavaScriptBridge.eval("window.pwcKeyboard.open(%s, window.pwcKeyboardDone);" % fields)
 
 
-## The page answers with the typed callsign (or null on cancel): the field
-## takes the text and the entry submits, the same as an Enter on a keyboard.
+## The page answers with the three details (or null on cancel): the name reads
+## back the room-console way - first initial, surname - and the entry logs
+## itself, the email riding along but never shown on the board.
 func _on_page_keyboard_done(args: Array) -> void:
 	if args.is_empty() or args[0] == null:
 		return
-	_name_edit.text = String(args[0]).substr(0, _name_edit.max_length)
+	var values: Array = args[0]
+	if values.size() < 3:
+		return
+	_first_name = String(values[0])
+	_surname = String(values[1])
+	_email = String(values[2])
+	_pilot_name = _formatted_name()
 	_on_log_entry()
 
 
-## Puts the keyboard up under the callsign field directly, whatever the focus
-## dance just did.
-func _raise_keyboard() -> void:
-	if not _entry_row.visible or not _name_edit.has_focus():
-		return
-	var rect := _name_edit.get_global_rect()
-	DisplayServer.virtual_keyboard_show(_name_edit.text,
-		Rect2i(rect.position, rect.size),
-		DisplayServer.KEYBOARD_TYPE_DEFAULT, _name_edit.max_length,
-		0, _name_edit.text.length())
+func _formatted_name() -> String:
+	var first := _first_name.strip_edges()
+	var last := _surname.strip_edges()
+	if first != "" and last != "":
+		return "%s. %s" % [first.substr(0, 1).to_upper(), last.capitalize()]
+	return (first + " " + last).strip_edges().capitalize()
 
 
 func _on_log_entry() -> void:
-	var pilot := _name_edit.text.strip_edges()
+	if _name_edit != null:
+		_pilot_name = _name_edit.text.strip_edges()
+	var pilot := _pilot_name
 	if pilot.is_empty():
-		_status_line("CALLSIGN REQUIRED")
+		_status_line("YOUR DETAILS ARE REQUIRED")
 		return
 	_entry_row.visible = false
 	_status_line("LOGGING ENTRY — %s // %s PTS" % [pilot.to_upper(), _fmt(_pending_score)])
-	_client().submit_score(pilot, _pending_score, _mode, _pending_seconds)
+	_client().submit_score(pilot, _pending_score, _mode, _pending_seconds, _email)
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -563,13 +584,11 @@ func _add_row_cells(
 		var l := _mk_label(String(texts[i]), base_size, color)
 		if i == 0:
 			l.custom_minimum_size.x = int(70 * _ui_scale)
-		elif i == 1 or i == 2:
+		elif i == 1:
 			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		elif i == 3:
+		elif i == 2:
 			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 			l.custom_minimum_size.x = int(200 * _ui_scale)
-		elif i == 4:
-			l.custom_minimum_size.x = int(170 * _ui_scale)
 		if is_data:
 			l.custom_minimum_size.y = int(34 * _ui_scale)
 			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -608,29 +627,7 @@ func _pulse(labels: Array) -> void:
 	tw.tween_method(set_alpha, 0.55, 1.0, 0.4)
 
 
-## Decorative hull assignment — stable per callsign. Swap for real data when
-## the API carries ship_type.
-func _ship_type_for(pilot: String) -> String:
-	var h := 0
-	for i in pilot.length():
-		h = (h * 31 + pilot.unicode_at(i)) % 1000003
-	return SHIP_FRAMES[h % SHIP_FRAMES.size()]
-
-
-## STATUS is derived from the entry's timestamp: anything logged in the last
-## ACTIVE_WINDOW_SECONDS reads ACTIVE, older entries read DOCKED.
-func _status_from(created_at: String) -> String:
-	var s := created_at.strip_edges().trim_suffix("Z")
-	if s.length() < 19:
-		return "DOCKED"
-	var t := Time.get_unix_time_from_datetime_string(s)
-	if t <= 0:
-		return "DOCKED"
-	if Time.get_unix_time_from_system() - t < ACTIVE_WINDOW_SECONDS:
-		return "ACTIVE"
-	return "DOCKED"
-
-
+## The board's own clock, ticking in the header while the screen is up.
 func _tick_clock() -> void:
 	_clock.text = "T " + Time.get_time_string_from_system(true)
 

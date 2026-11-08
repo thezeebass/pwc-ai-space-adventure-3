@@ -230,54 +230,97 @@
 
 			window.pwcLoading = { show:show, hide:hide, stage:stage };
 
-			// A page-level callsign input. Godot's own web keyboard is
+			// A page-level details input. Godot's own web keyboard is
 			// experimental and loses focus races with the canvas; a real DOM
 			// input focused inside the tap gesture always raises the OS
-			// keyboard. The game summons it through JavaScriptBridge and reads
-			// the answer back through the callback it registered.
+			// keyboard. The game summons it with a field list and reads the
+			// answers back through the callback it registered. An email field
+			// is syntax-checked before the sheet closes.
 			window.pwcKeyboard = {
-				open: function (text, maxLen, onDone) {
+				open: function (fields, onDone) {
 					if (!this._host) {
 						const host = document.createElement('div');
 						host.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(4,2,1,0.78);z-index:9999;';
 						const card = document.createElement('div');
-						card.style.cssText = 'background:#120a06;border:2px solid #dc5f27;border-radius:6px;padding:18px 20px;font-family:monospace;color:#f7f1e8;min-width:280px;';
+						card.style.cssText = 'background:#120a06;border:2px solid #dc5f27;border-radius:6px;padding:18px 20px;font-family:monospace;color:#f7f1e8;min-width:300px;max-width:92vw;';
 						const title = document.createElement('div');
-						title.textContent = 'ENTER CALLSIGN';
-						title.style.cssText = 'font-size:14px;letter-spacing:2px;color:#f0b838;margin-bottom:10px;';
-						const input = document.createElement('input');
-						input.style.cssText = 'width:100%;box-sizing:border-box;font-size:18px;padding:10px 12px;background:#050302;border:1px solid #665544;font-family:monospace;color:#ffffff;';
-						const row = document.createElement('div');
-						row.style.cssText = 'display:flex;gap:10px;margin-top:12px;';
+						title.textContent = 'ENTER YOUR DETAILS';
+						title.style.cssText = 'font-size:14px;letter-spacing:2px;color:#f0b838;margin-bottom:12px;';
+						const rows = document.createElement('div');
+						rows.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
+						const error = document.createElement('div');
+						error.style.cssText = 'font-size:13px;color:#ff8a5c;margin-top:10px;min-height:16px;';
+						const rowBtns = document.createElement('div');
+						rowBtns.style.cssText = 'display:flex;gap:10px;margin-top:6px;';
 						const ok = document.createElement('button');
 						ok.textContent = 'LOG IT';
 						ok.style.cssText = 'flex:1;padding:12px 0;font-size:14px;background:#f0b838;color:#1a0d05;border:0;border-radius:4px;font-family:monospace;font-weight:700;';
 						const cancel = document.createElement('button');
 						cancel.textContent = 'CANCEL';
 						cancel.style.cssText = 'padding:12px 14px;font-size:14px;background:transparent;color:#b9b4ad;border:1px solid #665544;border-radius:4px;font-family:monospace;';
-						row.appendChild(ok); row.appendChild(cancel);
-						card.appendChild(title); card.appendChild(input); card.appendChild(row);
+						rowBtns.appendChild(ok); rowBtns.appendChild(cancel);
+						card.appendChild(title); card.appendChild(rows); card.appendChild(error); card.appendChild(rowBtns);
 						host.appendChild(card);
 						document.body.appendChild(host);
 						let done = null;
-						const finish = (value) => {
+						let inputs = [];
+						const finish = (values) => {
 							host.style.display = 'none';
 							const cb = done; done = null;
-							if (cb) cb(value);
+							if (cb) cb(values);
 						};
-						ok.addEventListener('click', () => finish(input.value));
+						const submit = () => {
+							const values = [];
+							for (const f of inputs) {
+								const v = f.input.value.trim();
+								if (v === '') {
+									error.textContent = 'Every field needs an answer before the entry can be logged.';
+									f.input.focus();
+									return;
+								}
+								if (f.kind === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+									error.textContent = 'That email address does not look right - check it and try again.';
+									f.input.focus();
+									return;
+								}
+								values.push(v);
+							}
+							finish(values);
+						};
+						ok.addEventListener('click', submit);
 						cancel.addEventListener('click', () => finish(null));
-						input.addEventListener('keydown', (e) => {
-							if (e.key === 'Enter') finish(input.value);
-						});
-						this._host = host; this._input = input;
-						this._finish = finish; this._setDone = (cb) => { done = cb; };
+						this._host = host; this._rows = rows; this._error = error;
+						this._submit = submit; this._setDone = (cb) => { done = cb; };
 					}
-					this._input.value = String(text || '');
-					this._input.maxLength = maxLen || 24;
+					this._rows.innerHTML = '';
+					const inputs = [];
+					(fields || []).forEach(function (f) {
+						const wrap = document.createElement('div');
+						const lab = document.createElement('div');
+						lab.textContent = f.label;
+						lab.style.cssText = 'font-size:12px;letter-spacing:1px;color:#b9b4ad;margin-bottom:5px;';
+						const input = document.createElement('input');
+						if (f.kind === 'email') {
+							input.type = 'email';
+							input.autocapitalize = 'off';
+							input.autocomplete = 'email';
+						} else {
+							input.type = 'text';
+						}
+						input.value = String(f.value || '');
+						input.style.cssText = 'width:100%;box-sizing:border-box;font-size:18px;padding:10px 12px;background:#050302;border:1px solid #665544;font-family:monospace;color:#ffffff;';
+						input.addEventListener('keydown', (e) => {
+							if (e.key === 'Enter') window.pwcKeyboard._submit();
+						});
+						wrap.appendChild(lab); wrap.appendChild(input);
+						this._rows.appendChild(wrap);
+						inputs.push({ kind: f.kind || 'text', input: input });
+					}, this);
+					this._inputs = inputs;
+					this._error.textContent = '';
 					this._setDone(onDone);
 					this._host.style.display = 'flex';
-					this._input.focus();
+					inputs[0].input.focus();
 				}
 			};
 
