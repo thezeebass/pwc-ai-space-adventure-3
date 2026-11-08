@@ -63,6 +63,9 @@ func _ready() -> void:
 			pause_menu.reset_requested.connect(_on_reset_requested)
 		if hud != null and not hud.menu_requested.is_connected(pause_menu.open):
 			hud.menu_requested.connect(pause_menu.open)
+	if completion != null:
+		if not completion.restart_requested.is_connected(_on_reset_requested):
+			completion.restart_requested.connect(_on_reset_requested)
 	hud.refresh_objective()
 	# Two beds for the whole experience, started here and left running: the room
 	# tone under everything, the soundtrack over it. The mixer's saved state is

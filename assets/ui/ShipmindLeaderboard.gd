@@ -22,6 +22,14 @@ extends Control
 ##   4. crt_phosphor.gdshader  — scanlines/vignette, confined to the window
 
 signal closed
+## The crew posted their score and left the board: the run is done and told,
+## so the controller starts the next one from the top.
+signal restart_requested
+
+## Set the moment the server confirms an entry: closing the board after a
+## logged score means the run is complete - the completion screen turns that
+## into a restart instead of the results page.
+var entry_logged := false
 
 const FONT_PATH := "res://library/shooter-scifi/fonts/ShareTechMono-Regular.ttf"
 const CRT_TEXTURE_PATH := "res://assets/ui/leaderboard_crt.webp"
@@ -33,7 +41,9 @@ const IMG_SIZE := Vector2(2752, 1536)
 const WINDOW_RECT := Rect2(742, 279, 1268, 959)
 ## Text is designed against a window this tall; _ui_scale follows the real one.
 const DESIGN_WINDOW_HEIGHT := 700.0
-const MAX_ROWS := 10
+## Twenty-five rows: past the first ten the board still has a story to tell -
+## a crew that just posted wants to find their own name, wherever it ranks.
+const MAX_ROWS := 25
 
 const COL_BG := Color("0b0805")
 const COL_PHOSPHOR := Color("ffb343")
@@ -483,6 +493,7 @@ func _on_rank_preview(rank: int, total_players: int) -> void:
 
 
 func _on_submitted(result: Dictionary) -> void:
+	entry_logged = true
 	var entry: Dictionary = result.get("entry", {})
 	_highlight = {
 		"rank": int(result.get("rank", 0)),

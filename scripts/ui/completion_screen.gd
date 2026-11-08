@@ -25,6 +25,9 @@ extends CanvasLayer
 ## showing a text field.
 
 signal closed
+## The crew posted their score and left the board: the controller starts the
+## next run from the top.
+signal restart_requested
 
 const ORANGE := ScoreVisuals.ORANGE
 const PEACH := ScoreVisuals.PEACH
@@ -351,7 +354,14 @@ func _open_uplink_board() -> void:
 
 
 func _close_uplink_board() -> void:
+	## A logged score means the run is complete in every way that counts:
+	## leaving the board now restarts the run from the top, rather than
+	## handing back a results page the crew have already read.
+	var logged: bool = _uplink != null and _uplink.entry_logged
 	_discard_uplink()
+	if logged:
+		restart_requested.emit()
+		return
 	_root.visible = _open
 
 
