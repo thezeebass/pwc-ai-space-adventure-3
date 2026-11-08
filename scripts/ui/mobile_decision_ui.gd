@@ -128,7 +128,7 @@ func render(state: ScreenState, puzzle: Puzzle) -> void:
 		_render_readback(state)
 
 
-# --- The shell --------------------------------------------------------------------
+# --- The shell -------------------------------------------------------------------
 
 
 func _build() -> void:
