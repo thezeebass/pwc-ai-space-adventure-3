@@ -599,15 +599,17 @@ func _add_row_cells(
 ) -> void:
 	var labels: Array = []
 	## Rank and score hug their content; the pilot column stretches so the
-	## score's right edge lands on the glass's right edge. Every cell clips
-	## with an ellipsis, so even a long pilot name can never push the score
+	## score's right edge lands on the glass's right edge. Only the pilot cell
+	## clips with an ellipsis - a clipped label's minimum width collapses to a
+	## pixel, so rank and score must keep theirs to stay visible; and the
+	## ellipsis means even the longest pilot name can never push the score
 	## past the frame.
 	for i in texts.size():
 		var l := _mk_label(String(texts[i]), base_size, color)
-		l.clip_text = true
-		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		if i == 1:
 			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			l.clip_text = true
+			l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		elif i == 2:
 			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		if is_data:
