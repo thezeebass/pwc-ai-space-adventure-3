@@ -535,14 +535,16 @@ func _open_page_keyboard() -> void:
 	JavaScriptBridge.eval("window.pwcKeyboard.open(%s, window.pwcKeyboardDone);" % fields)
 
 
-## The page answers with the three details (or null on cancel): the name reads
-## back the room-console way - first initial, surname - and the entry logs
-## itself, the email riding along but never shown on the board.
+## The page answers with the three details as a JSON string (or null on
+## cancel): a JS array does not survive the bridge as a GDScript array, so the
+## sheet stringifies and the game parses. The name reads back the room-console
+## way - first initial, surname - and the entry logs itself, the email riding
+## along but never shown on the board.
 func _on_page_keyboard_done(args: Array) -> void:
 	if args.is_empty() or args[0] == null:
 		return
-	var values: Array = args[0]
-	if values.size() < 3:
+	var values: Array = JSON.parse_string(String(args[0]))
+	if values == null or values.size() < 3:
 		return
 	_first_name = String(values[0])
 	_surname = String(values[1])
@@ -583,15 +585,12 @@ func _add_row_cells(
 	rank := 0, pilot := ""
 ) -> void:
 	var labels: Array = []
+	## The columns hug their content: a wide pilot column pushed the score to
+	## the far edge of the glass at larger text sizes.
 	for i in texts.size():
 		var l := _mk_label(String(texts[i]), base_size, color)
-		if i == 0:
-			l.custom_minimum_size.x = int(70 * _ui_scale)
-		elif i == 1:
-			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		elif i == 2:
+		if i == 2:
 			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			l.custom_minimum_size.x = int(200 * _ui_scale)
 		if is_data:
 			l.custom_minimum_size.y = int(34 * _ui_scale)
 			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

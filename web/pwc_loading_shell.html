@@ -267,7 +267,7 @@
 						const finish = (values) => {
 							host.style.display = 'none';
 							const cb = done; done = null;
-							if (cb) cb(values);
+							if (cb) cb(JSON.stringify(values));
 						};
 						const submit = () => {
 							const values = [];
