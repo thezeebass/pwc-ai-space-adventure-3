@@ -72,6 +72,8 @@ var _cursor: ColorRect
 var _scroll: ScrollContainer
 var _scroll_dragged: bool = false
 var _scroll_press_at: Vector2 = Vector2.ZERO
+## The callback the page calls back with the typed callsign.
+var _js_done = null
 
 
 func _ready() -> void:
@@ -475,21 +477,52 @@ func _connect_client() -> void:
 	c.request_failed.connect(_on_failed)
 
 
-## The tap that focuses the callsign field on the web. A field that is already
-## focused never re-runs the focus hook the keyboard answers, so the tap drops
-## and re-grabs focus - and the keyboard itself is re-raised a beat later: the
-## engine's own handlers make the canvas take focus back around the tap, which
-## can close the keyboard the moment it opens. Raising it again after the steal
-## wins, and is harmless when the keyboard is already up.
+## The tap on the callsign field. On a touch device the OS keyboard comes from
+## the page: Godot's own web keyboard is experimental and loses the focus race
+## with the canvas, so the tap summons a real DOM input the shell hosts, and
+## the answer comes back through the callback. On a desktop the field keeps
+## the caret and the physical keyboard answers as always.
 func _on_name_input(event: InputEvent) -> void:
-	if OS.has_feature("web") and (
-			(event is InputEventMouseButton and event.pressed \
-				and event.button_index == MOUSE_BUTTON_LEFT) \
-			or (event is InputEventScreenTouch and event.pressed)):
+	if not OS.has_feature("web"):
+		return
+	var touch: bool = DisplayServer.is_touchscreen_available()
+	var pressed: bool = (event is InputEventMouseButton and event.pressed \
+			and event.button_index == MOUSE_BUTTON_LEFT) \
+			or (event is InputEventScreenTouch and event.pressed)
+	if not pressed:
+		return
+	if touch:
+		_open_page_keyboard()
+	else:
+		## A desktop browser: the caret alone is enough, but the engine's
+		## handlers still make the canvas take focus back around the tap, so
+		## the tap drops and re-grabs focus, and re-raises the (harmless) VK.
 		_name_edit.release_focus()
 		_name_edit.grab_focus()
 		_raise_keyboard.call_deferred()
 		get_tree().create_timer(0.25).timeout.connect(_raise_keyboard)
+
+
+## Opens the shell-hosted callsign input. Runs inside the tap's gesture - the
+## browser guarantees the keyboard for a focus made there.
+func _open_page_keyboard() -> void:
+	if not bool(JavaScriptBridge.eval("!!window.pwcKeyboard")):
+		push_warning("The page offers no callsign input; typing stays on the field.")
+		return
+	_js_done = JavaScriptBridge.create_callback(_on_page_keyboard_done)
+	var js := JavaScriptBridge.get_interface("window")
+	js.pwcKeyboardDone = _js_done
+	JavaScriptBridge.eval("window.pwcKeyboard.open(%s, %d, window.pwcKeyboardDone);"
+		% [JSON.stringify(_name_edit.text), _name_edit.max_length])
+
+
+## The page answers with the typed callsign (or null on cancel): the field
+## takes the text and the entry submits, the same as an Enter on a keyboard.
+func _on_page_keyboard_done(args: Array) -> void:
+	if args.is_empty() or args[0] == null:
+		return
+	_name_edit.text = String(args[0]).substr(0, _name_edit.max_length)
+	_on_log_entry()
 
 
 ## Puts the keyboard up under the callsign field directly, whatever the focus

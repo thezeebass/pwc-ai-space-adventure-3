@@ -230,6 +230,57 @@
 
 			window.pwcLoading = { show:show, hide:hide, stage:stage };
 
+			// A page-level callsign input. Godot's own web keyboard is
+			// experimental and loses focus races with the canvas; a real DOM
+			// input focused inside the tap gesture always raises the OS
+			// keyboard. The game summons it through JavaScriptBridge and reads
+			// the answer back through the callback it registered.
+			window.pwcKeyboard = {
+				open: function (text, maxLen, onDone) {
+					if (!this._host) {
+						const host = document.createElement('div');
+						host.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(4,2,1,0.78);z-index:9999;';
+						const card = document.createElement('div');
+						card.style.cssText = 'background:#120a06;border:2px solid #dc5f27;border-radius:6px;padding:18px 20px;font-family:monospace;color:#f7f1e8;min-width:280px;';
+						const title = document.createElement('div');
+						title.textContent = 'ENTER CALLSIGN';
+						title.style.cssText = 'font-size:14px;letter-spacing:2px;color:#f0b838;margin-bottom:10px;';
+						const input = document.createElement('input');
+						input.style.cssText = 'width:100%;box-sizing:border-box;font-size:18px;padding:10px 12px;background:#050302;border:1px solid #665544;font-family:monospace;color:#ffffff;';
+						const row = document.createElement('div');
+						row.style.cssText = 'display:flex;gap:10px;margin-top:12px;';
+						const ok = document.createElement('button');
+						ok.textContent = 'LOG IT';
+						ok.style.cssText = 'flex:1;padding:12px 0;font-size:14px;background:#f0b838;color:#1a0d05;border:0;border-radius:4px;font-family:monospace;font-weight:700;';
+						const cancel = document.createElement('button');
+						cancel.textContent = 'CANCEL';
+						cancel.style.cssText = 'padding:12px 14px;font-size:14px;background:transparent;color:#b9b4ad;border:1px solid #665544;border-radius:4px;font-family:monospace;';
+						row.appendChild(ok); row.appendChild(cancel);
+						card.appendChild(title); card.appendChild(input); card.appendChild(row);
+						host.appendChild(card);
+						document.body.appendChild(host);
+						let done = null;
+						const finish = (value) => {
+							host.style.display = 'none';
+							const cb = done; done = null;
+							if (cb) cb(value);
+						};
+						ok.addEventListener('click', () => finish(input.value));
+						cancel.addEventListener('click', () => finish(null));
+						input.addEventListener('keydown', (e) => {
+							if (e.key === 'Enter') finish(input.value);
+						});
+						this._host = host; this._input = input;
+						this._finish = finish; this._setDone = (cb) => { done = cb; };
+					}
+					this._input.value = String(text || '');
+					this._input.maxLength = maxLen || 24;
+					this._setDone(onDone);
+					this._host.style.display = 'flex';
+					this._input.focus();
+				}
+			};
+
 			setInterval(function () {
 				if (!downloading || failed) return;
 				hintIndex = (hintIndex + 1) % hints.length;
