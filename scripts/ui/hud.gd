@@ -171,13 +171,13 @@ func _apply_safe_area() -> void:
 	if _callsign_label != null:
 		_callsign_label.offset_top = inset
 		# The callsign sits left of the MENU button, sharing its top line.
-		_callsign_label.offset_right = -(inset + 90.0)
+		_callsign_label.offset_right = -(inset + 134.0)
 		_callsign_label.offset_left = -(inset + 346.0)
 	if _menu_button_ref != null:
 		_menu_button_ref.offset_top = inset
-		_menu_button_ref.offset_bottom = inset + 28.0
+		_menu_button_ref.offset_bottom = inset + 34.0
 		_menu_button_ref.offset_right = -inset
-		_menu_button_ref.offset_left = -inset - 78.0
+		_menu_button_ref.offset_left = -inset - 122.0
 	if _detail != null:
 		_detail.offset_left = inset
 		_detail.offset_top = inset + 112.0
@@ -186,8 +186,14 @@ func _apply_safe_area() -> void:
 		subtitle.offset_left = -half_width
 		subtitle.offset_right = half_width
 		if _compact:
-			subtitle.offset_top = inset
-			subtitle.offset_bottom = inset + 102.0
+			## Below the mandate strip, never on top of it: both owned the top
+			## band, and on a narrow phone the mandate text sat unread behind
+			## the dialogue. The strip's measured minimum height keeps the two
+			## apart whatever the text zoom does to the chips.
+			var strip_h: float = _strip.get_combined_minimum_size().y \
+					if _strip != null else 0.0
+			subtitle.offset_top = inset + strip_h + 16.0
+			subtitle.offset_bottom = inset + strip_h + 118.0
 		else:
 			subtitle.offset_top = -196.0
 			subtitle.offset_bottom = -112.0
@@ -417,10 +423,12 @@ func _menu_button() -> Button:
 	button.text = "MENU"
 	button.focus_mode = Control.FOCUS_NONE
 	button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	button.offset_left = -100.0
+	## Width is load-bearing: "MENU" at the 30px floor is wider than the old
+	## 78px frame, and the button clipped its own label to "MEN".
+	button.offset_left = -144.0
 	button.offset_top = 16.0
 	button.offset_right = -22.0
-	button.offset_bottom = 44.0
+	button.offset_bottom = 50.0
 	button.add_theme_font_size_override("font_size", 30)
 	button.add_theme_color_override("font_color", MUTED)
 	button.add_theme_color_override("font_hover_color", GOLD)
