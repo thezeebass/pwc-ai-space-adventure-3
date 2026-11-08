@@ -497,7 +497,12 @@ func _show_level_detail(level_id: String) -> void:
 	var entry := _find_entry(_level_entries, level_id)
 	if entry.is_empty():
 		return
-	_show_detail(_level_detail, String(entry.get("label", "")), String(entry.get("hint", "")))
+	var body := String(entry.get("hint", ""))
+	if _puzzle != null and is_instance_valid(_puzzle):
+		var context := OperatingModel.option_context(_puzzle.puzzle_id, level_id)
+		if context != "":
+			body = context
+	_show_detail(_level_detail, String(entry.get("label", "")), body)
 	## The detail block carries the chosen level's colour down its left edge, so
 	## the reading under the slider belongs to the box that was pressed.
 	if _level_detail.size() < 1:
