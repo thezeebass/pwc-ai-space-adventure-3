@@ -33,7 +33,6 @@ const IMG_SIZE := Vector2(2752, 1536)
 const WINDOW_RECT := Rect2(742, 279, 1268, 959)
 ## Text is designed against a window this tall; _ui_scale follows the real one.
 const DESIGN_WINDOW_HEIGHT := 700.0
-const FONT_FLOOR := 30
 const MAX_ROWS := 10
 
 const COL_BG := Color("0b0805")
@@ -292,7 +291,7 @@ func _build_ui() -> void:
 		details_button.custom_minimum_size = Vector2(0, int(40 * _ui_scale))
 		if _font:
 			details_button.add_theme_font_override("font", _font)
-		details_button.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), FONT_FLOOR))
+		details_button.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), 12))
 		details_button.add_theme_color_override("font_color", COL_BG)
 		details_button.add_theme_color_override("font_hover_color", COL_BG)
 		var btn_style := StyleBoxFlat.new()
@@ -431,7 +430,7 @@ func _build_native_entry_row() -> void:
 	_name_edit.text_changed.connect(func(t): _pilot_name = t.strip_edges())
 	if _font:
 		_name_edit.add_theme_font_override("font", _font)
-	_name_edit.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), FONT_FLOOR))
+	_name_edit.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), 12))
 	_name_edit.add_theme_color_override("font_color", COL_BRIGHT)
 	_name_edit.add_theme_color_override("caret_color", COL_PHOSPHOR)
 	_name_edit.add_theme_stylebox_override("normal", _field_style(COL_FAINT))
@@ -445,7 +444,7 @@ func _build_native_entry_row() -> void:
 	log_button.custom_minimum_size = Vector2(0, int(40 * _ui_scale))
 	if _font:
 		log_button.add_theme_font_override("font", _font)
-	log_button.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), FONT_FLOOR))
+	log_button.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), 12))
 	log_button.add_theme_color_override("font_color", COL_BG)
 	log_button.add_theme_color_override("font_hover_color", COL_BG)
 	var btn_style := StyleBoxFlat.new()
@@ -655,7 +654,7 @@ func _mk_label(text: String, size: int, color: Color, align := HORIZONTAL_ALIGNM
 	l.horizontal_alignment = align
 	if _font:
 		l.add_theme_font_override("font", _font)
-	l.add_theme_font_size_override("font_size", maxi(int(size * _ui_scale), FONT_FLOOR))
+	l.add_theme_font_size_override("font_size", maxi(int(size * _ui_scale), 12))
 	l.add_theme_color_override("font_color", color)
 	return l
 
@@ -688,7 +687,7 @@ func _mk_close_button() -> Button:
 	button.size_flags_horizontal = Control.SIZE_SHRINK_END
 	if _font:
 		button.add_theme_font_override("font", _font)
-	button.add_theme_font_size_override("font_size", maxi(int(20 * _ui_scale), FONT_FLOOR))
+	button.add_theme_font_size_override("font_size", maxi(int(20 * _ui_scale), 12))
 	button.add_theme_color_override("font_color", COL_PHOSPHOR)
 	button.add_theme_color_override("font_hover_color", COL_BRIGHT)
 	button.add_theme_color_override("font_pressed_color", COL_BRIGHT)
