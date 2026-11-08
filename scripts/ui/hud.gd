@@ -102,10 +102,21 @@ func _ready() -> void:
 	TextZoom.register(root)
 
 
+var _strip_min_y: float = -1.0
+
+
 func _process(delta: float) -> void:
 	if GameState.run_running:
 		GameState.tick(delta)
 	_refresh_score()
+	## The mandate chip fills after the first layout pass (the preset mandate
+	## lands with the session), and the dialogue's offset was measured against
+	## the strip as it stood then - re-measure whenever the strip grows, or
+	## the dialogue drifts up onto the mandate row.
+	var strip_min: float = _strip.get_combined_minimum_size().y if _strip != null else 0.0
+	if absf(strip_min - _strip_min_y) > 0.5:
+		_strip_min_y = strip_min
+		_apply_safe_area()
 
 
 func clear_prompt() -> void:

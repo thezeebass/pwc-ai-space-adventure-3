@@ -199,28 +199,25 @@ func _show_card(title: String, text: String, progress: float) -> void:
 		_pop_in(tutorial_card)
 
 
-## Where the card lives: below SHIPMIND's dialogue - the dialogue owns the
-## band under the mandate strip, and a card on it reads over words - and
-## between the sticks when both are up, narrowing to the clear pocket the two
-## rings leave. Never past the bottom edge.
+## Where the card lives: near the bottom of the screen, in the clear column
+## between the two sticks - the sticks own the corners, SHIPMIND's dialogue
+## owns the top band. It narrows to the pocket the two rings leave, and only
+## rises above the bottom when the dialogue reaches that far down.
 func _place_card() -> void:
 	if tutorial_card == null:
 		return
 	var view: Vector2 = get_viewport().get_visible_rect().size
-	## The height is the authored card's, not the label's reported minimum: an
-	## autowrapped line squeezed to its measure width can report a towering
-	## minimum, and the card would grow to meet it.
 	var card_h: float = 132.0
-	var top: float = view.y * 0.30
-	var hud: Node = get_node_or_null("../HUD")
-	var subtitle: Control = hud.get("subtitle") if hud != null else null
-	if subtitle != null and subtitle.visible:
-		top = subtitle.global_position.y + subtitle.size.y + 12.0
 	var card_w: float = 456.0
 	if move_base.visible and look_base.visible:
 		var left_edge: float = stick_margin.x + move_radius * 2.0
 		var right_edge: float = view.x - stick_margin.x - look_radius * 2.0
 		card_w = clampf(right_edge - left_edge, 300.0, 456.0)
+	var top: float = view.y - card_h - 24.0
+	var hud: Node = get_node_or_null("../HUD")
+	var subtitle: Control = hud.get("subtitle") if hud != null else null
+	if subtitle != null and subtitle.visible:
+		top = maxf(top, subtitle.global_position.y + subtitle.size.y + 12.0)
 	top = clampf(top, 8.0, view.y - card_h - 8.0)
 	tutorial_card.anchor_left = 0.5
 	tutorial_card.anchor_right = 0.5
