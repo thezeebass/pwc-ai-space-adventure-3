@@ -409,7 +409,6 @@ func _draw_spectrum(block: Dictionary) -> void:
 	var note: String = String(block.get("note", ""))
 	if note != "":
 		_spectrum_box.add_child(_note_label(note, Brand.NEUTRAL))
-	_spectrum_box.add_child(_tag_row(block))
 	var tag_note: String = String(block.get("tag_note", ""))
 	if tag_note != "":
 		_spectrum_box.add_child(_note_label(tag_note, Brand.NEUTRAL))
@@ -825,30 +824,6 @@ func _note_label(text: String, tint: Color) -> Label:
 	label.add_theme_font_size_override("font_size", Brand.SIZE_SMALL)
 	label.add_theme_color_override("font_color", tint)
 	return label
-
-
-func _tag_label(text: String, tint: Color) -> Label:
-	var label := Label.new()
-	label.name = "Tag"
-	label.text = text
-	label.add_theme_font_size_override("font_size", Brand.SIZE_SMALL)
-	label.add_theme_color_override("font_color", tint)
-	return label
-
-
-## The decision's own weight, on the screen it is decided on. A tag the player
-## cannot read before placing is not an input to the placement.
-func _tag_row(block: Dictionary) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.name = "TagRow"
-	row.add_theme_constant_override("separation", 16)
-	var consequence: String = String(block.get("consequence", ""))
-	var reversibility: String = String(block.get("reversibility", ""))
-	if consequence != "":
-		row.add_child(_tag_label("STAKES   %s" % consequence, Brand.ACCENT))
-	if reversibility != "":
-		row.add_child(_tag_label("CAN UNDO   %s" % reversibility, Brand.NEUTRAL_LIGHT))
-	return row
 
 
 func _commit_fill(background: Color) -> StyleBoxFlat:

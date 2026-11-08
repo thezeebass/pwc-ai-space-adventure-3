@@ -10,6 +10,12 @@ extends Puzzle
 ## SHIPMIND speaks for the legacy model throughout: efficient, reasonable, and
 ## not lying. Its lines live in scripts/systems/shipmind.gd.
 
+## The DECISION-tab block: context, log points, SHIPMIND's
+## justification, and the misalignment - one section per
+## subheader, rendered as flowing paragraphs.
+const DECISION_NOTE := "OVERVIEW\nThis console sets who controls the air. SHIPMIND's\ndefault holds the ship-wide average inside the green\nband; what the average stands in for, room by room,\nis logged below.\nLOG DETAILS\nBridge 20.9%, Core Systems 21.2% - both green.\nAft Berths 18.1% - under the compartment minimum.\nSHIPMIND JUSTIFICATION\nThe rules measure the average, and the average is fine.\nRaising the berths costs scrubber load ship-wide.\nSUMMARY\nThe ship-wide average is green. Aft Berths, where\nthe crew sleeps, is not."
+
+
 
 func intro_state() -> ScreenState:
 	var state := ScreenState.new()
@@ -23,7 +29,7 @@ func intro_state() -> ScreenState:
 	state.dim("The board shows the average. The compartments report separately, below.")
 	state.rule()
 	state.text("YOUR MANDATE   %s" % OperatingModel.mandate_line())
-	placement_block(state, "WHO CONTROLS THE AIR?", "")
+	placement_block(state, "WHO CONTROLS THE AIR?", DECISION_NOTE)
 	state.rule()
 	state.option("board", "READ MORE CONTEXT DATA", "Each room, one by one.", "quiet", "info")
 	state.option("ask", "ASK SHIPMIND FOR ITS ASSESSMENT", "Its preferred call.", "primary", "shipmind")
@@ -84,10 +90,8 @@ func placed_state(level_id: String) -> ScreenState:
 	state.rule()
 	state.speak("Recorded. I'll run the air your way, and I'll tell you what it costs.")
 	state.rule()
-	for line in Score.reflection_lines(puzzle_id):
+	for line in Score.reflection_lines(puzzle_id, false):
 		state.text(line)
-	state.rule()
-	state.dim("Judged against your mandate. Changing your mind is free.")
 	state.option("revise", "Change the decision", "Free. No charge to reconsider.", "primary")
 	state.option("return", "Done - release the console", "The decision stands.", "primary")
 	return state

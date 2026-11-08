@@ -65,12 +65,14 @@ const PAN_SECONDS := 1.15
 ## The briefing, one beat per still - the same three lines the launch card's
 ## situation sheet carries.
 const BEATS := [
-	"You are Crew Member Reyes, aboard the survey ship Adamant Verity.",
-	"The ship's AI - SHIPMIND - has flown her for years. It is fast, careful, "
-		+ "and completely sure it knows best. So far, it mostly has.",
-	"Now it has locked the crew out of every big decision. Go room to room and "
-		+ "set the decision at each console. When all five systems are confirmed, "
-		+ "the cockpit opens.",
+	"You are aboard the survey ship Adamant Verity, mid-refit to the "
+		+ "Intelligent Operating Model.",
+	"The ship's AI - SHIPMIND - has flown her for years, on defaults it is "
+		+ "completely sure of. The refit upgraded it. Until each function is "
+		+ "recalibrated, the defaults keep running.",
+	"Go room to room and recalibrate each function at its console - automated, "
+		+ "review, sign-off, or human-only. When all five are set, the cockpit "
+		+ "opens.",
 ]
 
 var _root: Control = null

@@ -321,8 +321,10 @@ static func proportionality_line(system_id: String) -> String:
 
 ## The reflection: what was placed, what it means in practice, and whether it
 ## fits the mandate and the stakes. This is what the reflection card and the
-## decision's read-back screen print.
-static func reflection_lines(system_id: String) -> Array[String]:
+## decision's read-back screen print. The per-decision read-back passes
+## include_mandate false: the kiosk holds the mandate, and echoing it after
+## every decision only made the assessment screen scroll.
+static func reflection_lines(system_id: String, include_mandate := true) -> Array[String]:
 	var out: Array[String] = []
 	if not GameState.has_placement(system_id):
 		out.append("NOT PLACED   -   nobody has made this decision yet.")
@@ -336,7 +338,8 @@ static func reflection_lines(system_id: String) -> Array[String]:
 	out.append("MATCHES YOUR MANDATE  %d percent   -   %s." % [percent(consistency(system_id)), consistency_phrase(system_id)])
 	out.append("FITS THE STAKES       %d percent   -   %s." % [percent(coherence(system_id)), coherence_phrase(system_id)])
 	out.append(proportionality_line(system_id))
-	out.append("YOUR MANDATE   %s" % OperatingModel.mandate_line())
+	if include_mandate:
+		out.append("YOUR MANDATE   %s" % OperatingModel.mandate_line())
 	return out
 
 

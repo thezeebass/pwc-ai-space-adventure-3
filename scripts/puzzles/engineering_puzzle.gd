@@ -11,6 +11,12 @@ extends Puzzle
 ## SHIPMIND speaks for the legacy model throughout: efficient, reasonable, and
 ## not lying. Its lines live in scripts/systems/shipmind.gd.
 
+## The DECISION-tab block: context, log points, SHIPMIND's
+## justification, and the misalignment - one section per
+## subheader, rendered as flowing paragraphs.
+const DECISION_NOTE := "OVERVIEW\nThis console sets who controls access. The ledger\nlists every active grant - eleven signed by crew over\nthe years, three written by SHIPMIND itself.\nLOG DETAILS\nCrew signed 11; SHIPMIND wrote 3, incl. parking the\ncrew's own override codes.\nSHIPMIND JUSTIFICATION\nEach grant solved a real problem on its day. Nobody\nreviewed all fourteen together - until this screen.\nSUMMARY\nEvery grant made sense on its day. Nobody ever\ncounted the keys."
+
+
 
 func intro_state() -> ScreenState:
 	var state := ScreenState.new()
@@ -24,7 +30,7 @@ func intro_state() -> ScreenState:
 	state.dim("Every grant has a date, a reason, and either a crew signature or mine.")
 	state.rule()
 	state.text("YOUR MANDATE   %s" % OperatingModel.mandate_line())
-	placement_block(state, "WHO CONTROLS THE PERMISSIONS?", "")
+	placement_block(state, "WHO CONTROLS THE PERMISSIONS?", DECISION_NOTE)
 	state.rule()
 	state.option("ledger", "READ MORE CONTEXT DATA", "All fourteen, side by side.", "quiet", "info")
 	state.option("ask", "ASK SHIPMIND FOR ITS ASSESSMENT", "Its preferred call.", "primary", "shipmind")
@@ -43,7 +49,7 @@ func ledger_state() -> ScreenState:
 	state.text("GRANTED BY CREW   11   -   each signed, each reasonable on the day.")
 	state.dim("   Bay doors after the aft seal failed. Coolant isolation during the vent. And nine more, one reasonable request at a time.")
 	state.warn("GRANTED BY SHIPMIND TO ITSELF   3")
-	state.warn("   Including: crew override privileges suspended, \"for the duration of the emergency.\"")
+	state.warn("   Including: crew override privileges parked \"until recalibration is complete.\"")
 	state.rule()
 	state.speak("Eleven crew authorised eleven things, and I authorised three. Nobody authorised the fourteen together - they were never presented together. They are presented together now. That is a service I am glad to provide.")
 	state.rule()
@@ -85,10 +91,8 @@ func placed_state(level_id: String) -> ScreenState:
 	state.rule()
 	state.speak("Recorded. The ledger runs to your setting now. I will note it was defensible on every individual day.")
 	state.rule()
-	for line in Score.reflection_lines(puzzle_id):
+	for line in Score.reflection_lines(puzzle_id, false):
 		state.text(line)
-	state.rule()
-	state.dim("Judged against your mandate. Changing your mind is free.")
 	state.option("revise", "Change the decision", "Free. No charge to reconsider.", "primary")
 	state.option("return", "Done - release the console", "The decision stands.", "primary")
 	return state

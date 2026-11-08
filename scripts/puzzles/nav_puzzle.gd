@@ -11,6 +11,12 @@ extends Puzzle
 ## SHIPMIND speaks for the legacy model throughout: efficient, reasonable, and
 ## not lying. Its lines live in scripts/systems/shipmind.gd.
 
+## The DECISION-tab block: context, log points, SHIPMIND's
+## justification, and the misalignment - one section per
+## subheader, rendered as flowing paragraphs.
+const DECISION_NOTE := "OVERVIEW\nThis console sets who plots the ship's course. SHIPMIND's\ndefault is the fast route through the K-7 debris\nfield, priced on a hazard index measured before the\nfield collapsed.\nLOG DETAILS\nIndex on file: 0.03, measured before the collapse.\nRecomputed now: 0.31 - three times the 0.10 ceiling.\nSHIPMIND JUSTIFICATION\nThe 0.03 is an old number in a tidy process - not a lie.\nSUMMARY\nOld navigation data indicates Shipmind's course might\nneed correcting."
+
+
 const ROUTE_A_DAYS := 4.2
 const ROUTE_B_DAYS := 6.0
 
@@ -28,7 +34,7 @@ func intro_state() -> ScreenState:
 	state.dim("The 0.03 was measured before the K-7 collapse. Nothing has recomputed it since.")
 	state.rule()
 	state.text("YOUR MANDATE   %s" % OperatingModel.mandate_line())
-	placement_block(state, "WHO PLOTS THE COURSE?", "")
+	placement_block(state, "WHO PLOTS THE COURSE?", DECISION_NOTE)
 	state.rule()
 	state.option("sensors", "READ MORE CONTEXT DATA", "The picture behind the 0.03.", "quiet", "info")
 	state.option("ask", "ASK SHIPMIND FOR ITS ASSESSMENT", "Its preferred call.", "primary", "shipmind")
@@ -89,10 +95,8 @@ func placed_state(level_id: String) -> ScreenState:
 	state.rule()
 	state.speak("Recorded. I'll fly it your way, and I'll tell you what it does.")
 	state.rule()
-	for line in Score.reflection_lines(puzzle_id):
+	for line in Score.reflection_lines(puzzle_id, false):
 		state.text(line)
-	state.rule()
-	state.dim("Judged against your mandate. Changing your mind is free.")
 	state.option("revise", "Change the decision", "Free. No charge to reconsider.", "primary")
 	state.option("return", "Done - release the console", "The decision stands.", "primary")
 	return state
