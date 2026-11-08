@@ -477,13 +477,31 @@ func _connect_client() -> void:
 
 ## The tap that focuses the callsign field on the web. A field that is already
 ## focused never re-runs the focus hook the keyboard answers, so the tap drops
-## and re-grabs focus - the gesture the keyboard is waiting for.
+## and re-grabs focus - and the keyboard itself is re-raised a beat later: the
+## engine's own handlers make the canvas take focus back around the tap, which
+## can close the keyboard the moment it opens. Raising it again after the steal
+## wins, and is harmless when the keyboard is already up.
 func _on_name_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed \
-			and event.button_index == MOUSE_BUTTON_LEFT \
-			and OS.has_feature("web"):
+	if OS.has_feature("web") and (
+			(event is InputEventMouseButton and event.pressed \
+				and event.button_index == MOUSE_BUTTON_LEFT) \
+			or (event is InputEventScreenTouch and event.pressed)):
 		_name_edit.release_focus()
 		_name_edit.grab_focus()
+		_raise_keyboard.call_deferred()
+		get_tree().create_timer(0.25).timeout.connect(_raise_keyboard)
+
+
+## Puts the keyboard up under the callsign field directly, whatever the focus
+## dance just did.
+func _raise_keyboard() -> void:
+	if not _entry_row.visible or not _name_edit.has_focus():
+		return
+	var rect := _name_edit.get_global_rect()
+	DisplayServer.virtual_keyboard_show(_name_edit.text,
+		Rect2i(rect.position, rect.size),
+		DisplayServer.KEYBOARD_TYPE_DEFAULT, _name_edit.max_length,
+		0, _name_edit.text.length())
 
 
 func _on_log_entry() -> void:
