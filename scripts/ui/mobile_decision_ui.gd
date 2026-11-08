@@ -389,8 +389,13 @@ func _show_tab_content(tab_id: String) -> void:
 		return
 
 
-## One opening tab carries the decision, its plain-English scenario, the stakes
-## and the mandate together, so the crew do not have to reconstruct the case.
+## The DECISION tab: the question, then the bay's four-section block (OVERVIEW /
+## LOG DETAILS / SHIPMIND JUSTIFICATION / SUMMARY) from the spectrum note. The
+## stakes tags, the mandate and the old tag note are gone from this tab - the
+## mandate lives at the kiosk and the briefing, and the block carries the case.
+const SECTION_HEADERS := ["OVERVIEW", "LOG DETAILS", "SHIPMIND JUSTIFICATION", "SUMMARY"]
+
+
 func _fill_decision_context(tab: Dictionary) -> void:
 	var state: ScreenState = tab["state"]
 	var spectrum: Dictionary = state.spectrum
@@ -400,40 +405,46 @@ func _fill_decision_context(tab: Dictionary) -> void:
 	Brand.apply_tui(question, Brand.SIZE_TUI_TITLE)
 	question.add_theme_color_override("font_color", Brand.INK)
 	_content.add_child(question)
-	var scenario_text := String(spectrum.get("note", ""))
-	if scenario_text != "":
-		var scenario := Label.new()
-		scenario.text = scenario_text
-		scenario.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		Brand.apply_tui(scenario, Brand.console_size(Brand.SIZE_TUI))
-		scenario.add_theme_color_override("font_color", Brand.NEUTRAL_LIGHT)
-		_content.add_child(scenario)
 	_content.add_child(_rule())
-	var tag_row := VBoxContainer.new()
-	tag_row.add_theme_constant_override("separation", 4)
-	var consequence := String(spectrum.get("consequence", ""))
-	if consequence != "":
-		tag_row.add_child(_tag("STAKES  " + consequence, Brand.ACCENT))
-	var reversibility := String(spectrum.get("reversibility", ""))
-	if reversibility != "":
-		tag_row.add_child(_tag("CAN UNDO  " + reversibility, Brand.NEUTRAL_LIGHT))
-	_content.add_child(tag_row)
-	var mandate_heading := _tag("YOUR MANDATE", Brand.ACCENT_TINT)
-	_content.add_child(mandate_heading)
-	var mandate := Label.new()
-	mandate.text = OperatingModel.mandate_statement()
-	mandate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	Brand.apply_tui(mandate, Brand.console_size(Brand.SIZE_TUI))
-	mandate.add_theme_color_override("font_color", Brand.NEUTRAL_LIGHT)
-	_content.add_child(mandate)
-	var tag_note := String(spectrum.get("tag_note", ""))
-	if tag_note != "":
-		var note_label := Label.new()
-		note_label.text = tag_note
-		note_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		Brand.apply_tui(note_label, Brand.console_size(Brand.SIZE_TUI))
-		note_label.add_theme_color_override("font_color", Brand.NEUTRAL)
-		_content.add_child(note_label)
+	_add_note_sections(String(spectrum.get("note", "")))
+
+
+## The bay's block as flowing sections. A line matching a section header is
+## drawn in the accent voice; the lines between headers join into one
+## paragraph that wraps at whatever width the panel gives it. The authored
+## line breaks are typing aids only - they are never rendered as hard breaks,
+## so the text runs on and spaces evenly at any panel width or text zoom.
+func _add_note_sections(note: String) -> void:
+	if note == "":
+		return
+	var paragraph := ""
+	for line in note.split("\n", false):
+		if SECTION_HEADERS.has(line):
+			_flush_note_paragraph(paragraph)
+			paragraph = ""
+			var header := Label.new()
+			header.text = line
+			header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			Brand.apply_tui(header, Brand.console_size(Brand.SIZE_TUI))
+			header.add_theme_color_override("font_color", Brand.ACCENT_TINT)
+			_content.add_child(header)
+		else:
+			paragraph = line if paragraph == "" else paragraph + " " + line
+	_flush_note_paragraph(paragraph)
+
+
+## One section's body as a single paragraph. Empty sections render nothing.
+func _flush_note_paragraph(text: String) -> void:
+	if text == "":
+		return
+	var label := Label.new()
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Brand.apply_tui(label, Brand.console_size(Brand.SIZE_TUI))
+	label.add_theme_color_override("font_color", Brand.NEUTRAL_LIGHT)
+	_content.add_child(label)
 
 
 ## The bay's own tabs: lines in the machine voice, tones honoured, rules drawn
@@ -460,16 +471,6 @@ func _rule() -> ColorRect:
 	divider.custom_minimum_size = Vector2(0.0, 1.0)
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return divider
-
-
-func _tag(text: String, tint: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	Brand.apply_tui(label, Brand.console_size(Brand.SIZE_TUI_SMALL))
-	label.add_theme_color_override("font_color", tint)
-	return label
 
 
 # --- The decision column ------------------------------------------------------------
