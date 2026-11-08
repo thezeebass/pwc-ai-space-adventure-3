@@ -269,63 +269,29 @@ func _add_line(value: String, tone: String) -> void:
 	print_box.add_child(label)
 
 
-## The two recurring reads on a console - "more context data" and "ask SHIPMIND"
-## - arrive with an icon in their option entry and are drawn in the machine
-## voice: a glyph anchoring the left edge, the label in the bundled mono face.
-## They are pictures first so the crew can find them again on every screen
-## without reading, which matters most on a phone.
+## Every option on a terminal screen reads like the decision chips do: ONE
+## line of text with a glyph anchoring the left edge, in the machine voice.
+## A picture first, so the crew can find the same read on every screen without
+## parsing words - and so a hint never turns a button into a paragraph.
 func _make_option_button(entry: Dictionary) -> Button:
-	var hint: String = String(entry.get("hint", ""))
-	var icon_name: String = String(entry.get("icon", ""))
-	if icon_name != "":
-		return _make_icon_button(entry, hint)
-	var button := Button.new()
-	button.text = String(entry.get("label", "...")) + ("\n" + hint if hint != "" else "")
-	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.focus_mode = Control.FOCUS_ALL
-	## A floor only: the button grows to whatever its own two lines need, so a
-	## long hint wraps rather than being cropped. The floor is raised on a
-	## touchscreen because a fingertip needs about 44 px and the same sentence
-	## does not get any shorter on a phone.
-	var floor_height: float = 52.0 if hint == "" else 64.0
-	if not touch_mode():
-		floor_height = 38.0 if hint == "" else 52.0
-	button.custom_minimum_size = Vector2(0.0, floor_height)
-	button.add_theme_font_size_override("font_size", Brand.SIZE_LABEL)
-	var tone: String = String(entry.get("tone", "normal"))
-	match tone:
-		"primary":
-			button.modulate = Color(1.0, 0.88, 0.6)
-		"danger":
-			button.modulate = Color(0.98, 0.55, 0.42)
-		"quiet":
-			button.modulate = Color(0.76, 0.68, 0.62)
-		_:
-			button.modulate = Color(0.92, 0.88, 0.84)
-	button.pressed.connect(func() -> void: _on_option_pressed(String(entry.get("id", ""))))
-	return button
-
-
-## An icon-anchored read button: one HBox child carries the glyph and the two
-## lines of text, set out over the button with the same full-rect trick the
-## level stops use. tone "primary" is the screen's key action - on a decision
-## console that is asking SHIPMIND - so it gets the accent treatment; anything
-## else is a quieter read, like the context data.
-func _make_icon_button(entry: Dictionary, hint: String) -> Button:
 	var touch: bool = touch_mode()
 	var button := Button.new()
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.focus_mode = Control.FOCUS_ALL
-	button.custom_minimum_size = Vector2(0.0, 64.0 if touch else 48.0)
+	button.custom_minimum_size = Vector2(0.0, Platform.touch_target(52.0 if touch else 44.0))
 	var tone: String = String(entry.get("tone", "normal"))
 	var key := tone == "primary"
-	var text_tint: Color = Brand.ACCENT_TINT if key else Brand.NEUTRAL_LIGHT
-	var icon_tint: Color = Brand.ACCENT if key else Brand.NEUTRAL_LIGHT
+	var danger := tone == "danger"
+	var text_tint: Color = Brand.ACCENT_TINT if key \
+			else (Color(0.98, 0.55, 0.42) if danger else Brand.NEUTRAL_LIGHT)
+	var icon_tint: Color = Brand.ACCENT if key \
+			else (Color(0.98, 0.55, 0.42) if danger else Brand.NEUTRAL_LIGHT)
 	button.add_theme_color_override("font_color", text_tint)
 	button.add_theme_color_override("font_hover_color", Brand.ACCENT_TINT)
 	button.add_theme_color_override("font_pressed_color", Brand.ACCENT_TINT)
 	button.add_theme_color_override("font_focus_color", Brand.ACCENT_TINT)
-	var border: Color = Brand.ACCENT if key else Brand.NEUTRAL
+	var border: Color = Brand.ACCENT if key \
+			else (Color(0.98, 0.55, 0.42) if danger else Brand.NEUTRAL)
 	button.add_theme_stylebox_override("normal", _icon_box(Brand.SURFACE, border))
 	button.add_theme_stylebox_override("hover", _icon_box(Brand.SURFACE_RAISED, Brand.ACCENT))
 	button.add_theme_stylebox_override("pressed", _icon_box(Brand.SURFACE_RAISED, Brand.ACCENT))
@@ -341,34 +307,36 @@ func _make_icon_button(entry: Dictionary, hint: String) -> Button:
 	row.offset_top = 8.0
 	row.offset_bottom = -8.0
 	row.add_theme_constant_override("separation", 10)
-	var glyph := Glyph.make(String(entry.get("icon", "")), 22.0, icon_tint)
+	var icon_name: String = String(entry.get("icon", ""))
+	if icon_name == "":
+		icon_name = _default_option_icon(String(entry.get("id", "")))
+	var glyph := Glyph.make(icon_name, 22.0, icon_tint)
 	glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(glyph)
-	var text := VBoxContainer.new()
-	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	text.add_theme_constant_override("separation", 1)
 	var label := Label.new()
 	label.text = String(entry.get("label", "..."))
 	Brand.apply_tui(label, Brand.SIZE_TUI)
 	label.add_theme_color_override("font_color", text_tint)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	text.add_child(label)
-	if hint != "":
-		## The hint prints under the label, in the machine voice one step down.
-		var hint_label := Label.new()
-		hint_label.text = hint
-		hint_label.add_theme_font_size_override("font_size", Brand.SIZE_TUI_SMALL)
-		hint_label.add_theme_color_override("font_color", Brand.NEUTRAL)
-		hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		text.add_child(hint_label)
-	row.add_child(text)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(label)
 	button.add_child(row)
 	button.pressed.connect(func() -> void: _on_option_pressed(String(entry.get("id", ""))))
 	return button
+
+
+## An option that names no picture still gets one, from what it does - a button
+## never renders as bare text.
+func _default_option_icon(id: String) -> String:
+	match id:
+		"close":
+			return "close"
+		"log":
+			return "scroll"
+		_:
+			return "chevron"
 
 
 ## The icon button's fill: the same corner and border language as the choice
