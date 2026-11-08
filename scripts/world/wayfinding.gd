@@ -180,7 +180,9 @@ func _targets() -> Dictionary:
 		elif placed.get(entry["zone"], false):
 			target = base
 		elif entry["zone"] in LOWER_BAYS and upper_placed >= UPPER_BAYS.size():
-			target = base  # sent downstairs: the lower passage lights up
+			target = base  # sent downstairs: the lower bay zones light up
+		elif upper_placed >= UPPER_BAYS.size():
+			target = base  # sent downstairs: the whole route lights, end to end
 		else:
 			target = base * DIM_RATIO
 		out[(entry["light"] as OmniLight3D).get_instance_id()] = target

@@ -98,8 +98,21 @@ func _process(_d: float) -> bool:
 						lit = absf(float(targets[l.get_instance_id()]) - entry["base"]) < 0.01
 				_check(lit, "a placed bay's zone lights up")
 		3:
+			# The last upper bay sends the crew downstairs: the whole route
+			# lights, end to end - including the peripheral passage lights by
+			# the stairs and the stairwell.
 			if _ticks > 270:
 				_stage = 4
+				GameState.mark_restored("navigation")
+				GameState.mark_restored("comms")
+				var route: Dictionary = _wf._targets()
+				var peripheral_lit := true
+				for entry in _wf._corridor:
+					var l: OmniLight3D = entry["light"]
+					if entry["zone"] == "":
+						if absf(float(route[l.get_instance_id()]) - entry["base"]) > 0.01:
+							peripheral_lit = false
+				_check(peripheral_lit, "the route to the stairs lights end to end")
 				for id in GameState.SYSTEMS:
 					GameState.mark_restored(id)
 				var targets: Dictionary = _wf._targets()
