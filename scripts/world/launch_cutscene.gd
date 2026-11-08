@@ -184,7 +184,7 @@ func play() -> void:
 		_engine_glow.light_energy = 0.6
 	_drive_engines()
 	## The input layer owns the screen, so the crew's look and move input cannot
-## fight the cutscene camera.
+	## fight the cutscene camera.
 	InputRouter.set_ui_blocking(true)
 	if OS.is_debug_build():
 		print("[LaunchCutscene] departure started")
