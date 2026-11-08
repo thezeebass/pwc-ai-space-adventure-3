@@ -99,9 +99,13 @@ func _start() -> void:
 
 ## Any tap that no interactive control claimed lands here as the screen's own
 ## input; in attract mode (and after an entry is logged) that means "close".
+## A mouse tap closes - a touch press never does: fingers drag the board, and
+## at the scroll's edge the press bubbles up from the pane, so a touch that
+## reaches the end of the list must not read as "leave". The CLOSE button is
+## the way out on a touchscreen.
 func _on_gui_input(event: InputEvent) -> void:
-	var pressed: bool = (event is InputEventMouseButton and event.pressed) \
-		or (event is InputEventScreenTouch and event.pressed)
+	var pressed: bool = event is InputEventMouseButton and event.pressed \
+			and not DisplayServer.is_touchscreen_available()
 	if pressed and not _entry_row.visible:
 		closed.emit()
 
