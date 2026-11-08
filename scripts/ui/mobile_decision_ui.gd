@@ -14,6 +14,11 @@ extends Control
 ##     the pick. One commit button finishes.
 ##   - THE GATE: the decision stays greyed until every tab has been opened.
 ##     Unread tabs are bright orange; the tab bar is the only instruction.
+##   - OPTION CONTEXT: hovering (or press-and-holding) a chip slides a panel
+##     out of the decision column's left border, right to left, over the info
+##     window. It carries the reviewed paragraph for that option in THIS
+##     system - what pressing it means here, not a generic hint. Flowing text,
+##     no scroll: the panel sizes to the paragraph.
 ##   - The cockpit backdrop sits behind everything, blurred and scrimmed in the
 ##     baked asset: legibility comes from the bake, not from an in-engine
 ##     filter.
@@ -54,6 +59,22 @@ var _chips: Dictionary = {}
 var _level_choice: String = ""
 var _level_entries: Array = []
 
+## The option-context pop-out and the panels it measures against. The pop-out
+## is built once and parked invisible; every show re-measures, because the
+## safe area and the viewport can change under a rotation or a resize.
+var _info_panel: PanelContainer = null
+var _decision_panel: PanelContainer = null
+var _popup: PanelContainer = null
+var _popup_header: Label = null
+var _popup_body: Label = null
+var _popup_level: String = ""
+var _popup_anchor_x: float = 0.0
+var _popup_seq: int = 0
+var _popup_tween: Tween = null
+var _hold_timer: Timer = null
+var _hold_level: String = ""
+var _hold_chip: Button = null
+
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -90,6 +111,7 @@ func close() -> void:
 	_active_tab = ""
 	_level_choice = ""
 	_chips = {}
+	_hide_option_popup()
 
 
 ## Renders one emitted state. A spectrum block is the decision itself; anything
@@ -106,7 +128,7 @@ func render(state: ScreenState, puzzle: Puzzle) -> void:
 		_render_readback(state)
 
 
-# --- The shell -------------------------------------------------------------------
+# --- The shell --------------------------------------------------------------------
 
 
 func _build() -> void:
@@ -150,6 +172,7 @@ func _build() -> void:
 
 	var info_panel := _shell_panel(INFO_STRETCH)
 	columns.add_child(info_panel)
+	_info_panel = info_panel
 	var info := _panel_body(info_panel)
 	_tab_bar = HBoxContainer.new()
 	_tab_bar.name = "Tabs"
@@ -171,7 +194,9 @@ func _build() -> void:
 
 	var decision_panel := _shell_panel(DECISION_STRETCH)
 	columns.add_child(decision_panel)
+	_decision_panel = decision_panel
 	_decision_column = _panel_body(decision_panel)
+	_build_option_popup()
 
 
 ## Title, status and the way out, shared by both modes. There is no footer and
@@ -280,10 +305,11 @@ func _clear(node: Node) -> void:
 		child.queue_free()
 
 
-# --- Decision mode -----------------------------------------------------------------
+# --- Decision mode --------------------------------------------------------------------
 
 
 func _render_decision(state: ScreenState) -> void:
+	_hide_option_popup()
 	_level_choice = ""
 	_chips = {}
 	_level_entries = state.spectrum.get("levels", [])
@@ -340,6 +366,7 @@ func _make_tab_button(tab: Dictionary) -> Button:
 func _open_tab(tab_id: String) -> void:
 	_active_tab = tab_id
 	_viewed[tab_id] = true
+	_hide_option_popup()
 	for button in _tab_bar.get_children():
 		_style_tab(button as Button, String(button.get_meta("tab_id")) == tab_id)
 	_show_tab_content(tab_id)
@@ -569,6 +596,11 @@ func _make_chip(level_id: String, label: String) -> Button:
 	glyph.offset_bottom = 16.0
 	chip.add_child(glyph)
 	chip.toggled.connect(func(on: bool) -> void: glyph.tint = ink if on else quiet_ink)
+	## The option-context pop-out: hover on desktop, press-and-hold on touch.
+	chip.mouse_entered.connect(_show_option_popup.bind(level_id, chip))
+	chip.mouse_exited.connect(_hide_option_popup)
+	chip.button_down.connect(_on_chip_held.bind(level_id, chip))
+	chip.button_up.connect(_on_chip_released)
 	return chip
 
 
@@ -582,6 +614,7 @@ func _chip_box(background: Color, border: Color) -> StyleBoxFlat:
 
 func _on_chip_pressed(level_id: String) -> void:
 	_level_choice = level_id
+	_hide_option_popup()
 	_refresh_slot()
 	_refresh_commit()
 
@@ -634,7 +667,183 @@ func _on_commit_pressed() -> void:
 	placement_chosen.emit(_level_choice)
 
 
-# --- Read-back mode -----------------------------------------------------------------
+# --- Option context pop-out -----------------------------------------------------------
+
+
+## The floating panel the chip hover (or press-and-hold) opens. Built once,
+## parked invisible, re-measured on every show: header strip in the chip's own
+## chart colour, one flowing paragraph beneath. NO SCROLL CONTAINER - the
+## panel sizes itself to the reviewed copy, so a paragraph that does not fit
+## is a copy bug to fix in OperatingModel.OPTION_CONTEXT, never something the
+## player is asked to scroll.
+func _build_option_popup() -> void:
+	_popup = PanelContainer.new()
+	_popup.name = "OptionPopup"
+	_popup.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_popup.visible = false
+	_popup.clip_contents = true
+	_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(
+		Brand.SURFACE_RAISED.r, Brand.SURFACE_RAISED.g, Brand.SURFACE_RAISED.b, 0.97)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(4)
+	style.content_margin_left = 14.0
+	style.content_margin_right = 14.0
+	style.content_margin_top = 12.0
+	style.content_margin_bottom = 12.0
+	_popup.add_theme_stylebox_override("panel", style)
+
+	var body := VBoxContainer.new()
+	body.name = "Body"
+	body.add_theme_constant_override("separation", 8)
+	_popup.add_child(body)
+
+	var header_panel := PanelContainer.new()
+	header_panel.name = "Header"
+	var header_style := StyleBoxFlat.new()
+	header_style.set_corner_radius_all(3)
+	header_style.content_margin_left = 10.0
+	header_style.content_margin_right = 10.0
+	header_style.content_margin_top = 5.0
+	header_style.content_margin_bottom = 5.0
+	header_panel.add_theme_stylebox_override("panel", header_style)
+	_popup_header = Label.new()
+	_popup_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_popup_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Brand.apply_tui(_popup_header, Brand.SIZE_TUI)
+	header_panel.add_child(_popup_header)
+	body.add_child(header_panel)
+
+	_popup_body = Label.new()
+	_popup_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_popup_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Brand.apply_tui(_popup_body, Brand.console_size(Brand.SIZE_TUI))
+	_popup_body.add_theme_color_override("font_color", Brand.NEUTRAL_LIGHT)
+	body.add_child(_popup_body)
+
+	_hold_timer = Timer.new()
+	_hold_timer.name = "HoldTimer"
+	_hold_timer.one_shot = true
+	_hold_timer.wait_time = 0.45
+	_hold_timer.timeout.connect(_on_hold_timeout)
+	add_child(_hold_timer)
+
+	add_child(_popup)
+
+
+func _show_option_popup(level_id: String, chip: Button) -> void:
+	## The gate holds the chips grey and dead; the explanation belongs to the
+	## same moment the pick does, so a gated chip explains nothing either.
+	if _puzzle == null or chip == null or chip.disabled:
+		return
+	var paragraph := OperatingModel.option_context(_puzzle.puzzle_id, level_id)
+	if paragraph == "":
+		return
+	_popup_seq += 1
+	var seq := _popup_seq
+	if _popup_tween != null and _popup_tween.is_valid():
+		_popup_tween.kill()
+	_popup_level = level_id
+
+	var fill: Color = OperatingModel.level_color(level_id)
+	var ink: Color = Brand.SURFACE if OperatingModel.level_dark_text(level_id) else Brand.INK
+	var header_panel := _popup.get_node("Body/Header") as PanelContainer
+	var header_style := StyleBoxFlat.new()
+	header_style.bg_color = fill
+	header_style.set_corner_radius_all(3)
+	header_style.content_margin_left = 10.0
+	header_style.content_margin_right = 10.0
+	header_style.content_margin_top = 5.0
+	header_style.content_margin_bottom = 5.0
+	header_panel.add_theme_stylebox_override("panel", header_style)
+	_popup_header.text = "%s  ·  %s" % [OperatingModel.level_label(level_id), _puzzle.system_title.to_upper()]
+	_popup_header.add_theme_color_override("font_color", ink)
+	_popup_body.text = paragraph
+	var border := _popup.get_theme_stylebox("panel") as StyleBoxFlat
+	if border != null:
+		var tinted: StyleBoxFlat = border.duplicate()
+		tinted.border_color = fill
+		_popup.add_theme_stylebox_override("panel", tinted)
+
+	## Measure at full width first: the panel gets one layout pass at its
+	## target width so the paragraph's wrapped height is real, then slides out
+	## right to left with the right edge pinned to the decision column's border.
+	## It stays fully transparent until the slide starts, so the measurement
+	## frame never flashes at the top-left corner.
+	_popup.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	_popup.visible = true
+	var width := _popup_target_width()
+	_popup.size = Vector2(width, 40.0)
+	await get_tree().process_frame
+	if seq != _popup_seq or not _popup.visible:
+		return
+	_popup.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	var height := maxf(_popup.get_combined_minimum_size().y, 90.0)
+	var origin := get_global_rect().position
+	var border_x := _decision_panel.get_global_rect().position.x - origin.x
+	var chip_centre_y := chip.get_global_rect().get_center().y - origin.y
+	var top := clampf(chip_centre_y - height * 0.5, 70.0, size.y - height - 30.0)
+	_popup_anchor_x = border_x
+	_popup.position = Vector2(border_x, top)
+	_popup.size = Vector2(0.0, height)
+	_popup_tween = create_tween()
+	_popup_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_popup_tween.tween_method(_slide_option_popup.bind(width), 0.0, 1.0, 0.18)
+
+
+## The slide: the panel's right edge stays pinned to the decision column's
+## border while its left edge sweeps out into the info window - right to left,
+## per the reviewed wireframe.
+func _slide_option_popup(t: float, width: float) -> void:
+	var w := width * t
+	_popup.position.x = _popup_anchor_x - w
+	_popup.size.x = w
+
+
+func _popup_target_width() -> float:
+	var info_width := _info_panel.get_global_rect().size.x
+	return clampf(info_width * 0.55, 240.0, 620.0)
+
+
+func _hide_option_popup() -> void:
+	_popup_seq += 1
+	_popup_level = ""
+	if _popup_tween != null and _popup_tween.is_valid():
+		_popup_tween.kill()
+	if _hold_timer != null:
+		_hold_timer.stop()
+	if _popup != null:
+		_popup.visible = false
+
+
+## Press-and-hold (touch): the hover a touchscreen does not have. The timer is
+## skipped when the pop-out for this chip is already up from a hover, so a
+## desktop press does not retrigger its own explanation.
+func _on_chip_held(level_id: String, chip: Button) -> void:
+	if _popup_level == level_id and _popup.visible:
+		return
+	_hold_level = level_id
+	_hold_chip = chip
+	if _hold_timer != null:
+		_hold_timer.start()
+
+
+func _on_chip_released() -> void:
+	if _hold_timer != null:
+		_hold_timer.stop()
+	if _popup.visible:
+		_hide_option_popup()
+
+
+func _on_hold_timeout() -> void:
+	if _hold_level != "" and _hold_chip != null and is_instance_valid(_hold_chip):
+		_show_option_popup(_hold_level, _hold_chip)
+	_hold_level = ""
+	_hold_chip = null
+
+
+# --- Read-back mode ---------------------------------------------------------------------
 
 
 ## Everything a decision bay emits without a spectrum block: the recorded
@@ -642,6 +851,7 @@ func _on_commit_pressed() -> void:
 ## the lines read left, the screen's own options (change it / release the
 ## console) sit right, no gate - the decision is already made.
 func _render_readback(state: ScreenState) -> void:
+	_hide_option_popup()
 	_title_label.text = state.title
 	_status_label.text = state.status
 	_status_label.add_theme_color_override("font_color", state.accent)
