@@ -23,7 +23,7 @@ func main_state() -> ScreenState:
 	state.status = "ONLINE"
 	state.accent = Brand.ACCENT_TINT
 	state.rule()
-	state.speak("Hello, Reyes. What do you need?")
+	state.speak("Hello. SHIPMIND here - upgraded, and awaiting recalibration. What do you need?")
 	state.rule()
 	state.text("YOUR MANDATE   %s" % OperatingModel.mandate_line())
 	state.dim("Read-only - it only tells you where you stand.")
@@ -88,7 +88,7 @@ func log_state() -> ScreenState:
 	state.accent = Color(0.93, 0.86, 0.76)
 	state.rule()
 	if GameState.override_log.is_empty():
-		state.dim("Nothing yet. SHIPMIND has had its way so far.")
+		state.dim("Nothing yet. The defaults have had their way so far.")
 	else:
 		for entry in GameState.override_log:
 			state.text("- %s" % String(entry))
