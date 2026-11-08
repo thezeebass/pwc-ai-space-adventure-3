@@ -201,7 +201,9 @@ func _layout() -> void:
 	if _crt_overlay:
 		_crt_overlay.position = r.position
 		_crt_overlay.size = r.size
-	_ui_scale = clampf(r.size.y / DESIGN_WINDOW_HEIGHT, 0.6, 3.0)
+	## The floor keeps the board legible on a phone: below it the window is
+	## narrow but the glass is big, and 0.6-scale text read as a footnote.
+	_ui_scale = clampf(r.size.y / DESIGN_WINDOW_HEIGHT, 0.72, 3.0)
 
 
 func _notification(what: int) -> void:
@@ -585,11 +587,17 @@ func _add_row_cells(
 	rank := 0, pilot := ""
 ) -> void:
 	var labels: Array = []
-	## The columns hug their content: a wide pilot column pushed the score to
-	## the far edge of the glass at larger text sizes.
+	## Rank and score hug their content; the pilot column stretches so the
+	## score's right edge lands on the glass's right edge. Every cell clips
+	## with an ellipsis, so even a long pilot name can never push the score
+	## past the frame.
 	for i in texts.size():
 		var l := _mk_label(String(texts[i]), base_size, color)
-		if i == 2:
+		l.clip_text = true
+		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		if i == 1:
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		elif i == 2:
 			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		if is_data:
 			l.custom_minimum_size.y = int(34 * _ui_scale)
