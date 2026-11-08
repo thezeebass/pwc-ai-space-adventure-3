@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://ca1rxqi8pc75e" path="res://scenes/world/stairwell.tscn" id="15_stairwell"]
 [ext_resource type="PackedScene" uid="uid://bls6x70yn4nl1" path="res://scenes/world/deck2.tscn" id="16_deck2"]
 [ext_resource type="Script" uid="uid://bu1cf3571syso" path="res://scripts/world/bay_plate.gd" id="20_bay_plate"]
+[ext_resource type="Script" path="res://scripts/world/wayfinding.gd" id="30_wayfinding"]
 
 [sub_resource type="Shader" id="Shader_deep_space"]
 code = "shader_type sky;
@@ -156,6 +157,9 @@ environment = SubResource("Environment_station")
 [node name="Stairwell" parent="." unique_id=1755860473 instance=ExtResource("15_stairwell")]
 
 [node name="Deck2" parent="." unique_id=46924450 instance=ExtResource("16_deck2")]
+
+[node name="Wayfinding" type="Node" parent="."]
+script = ExtResource("30_wayfinding")
 
 [node name="BridgeApproach" type="Node3D" parent="." unique_id=1067502402]
 
