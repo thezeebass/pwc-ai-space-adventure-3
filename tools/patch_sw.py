@@ -56,5 +56,22 @@ if anchor not in src:
     sys.exit(1)
 
 src = src.replace(anchor, inject, 1)
+
+# The new worker must take over immediately. Without skipWaiting it waits for
+# every tab of the site to close before activating, and a phone that keeps the
+# game open sits on a dead worker serving an old build for days - the build
+# ping reloads into the same stale cache. claim() hands the open page to the
+# fresh worker the moment it activates.
+src = src.replace(
+	"event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(CACHED_FILES)));",
+	"event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(CACHED_FILES)).then(() => self.skipWaiting()));", 1)
+src = src.replace(
+	"return ('navigationPreload' in self.registration) ? self.registration.navigationPreload.enable() : Promise.resolve();",
+	"return (('navigationPreload' in self.registration) ? self.registration.navigationPreload.enable() : Promise.resolve()).then(() => self.clients.claim());", 1)
+
+if "self.skipWaiting()" not in src or "self.clients.claim()" not in src:
+	print("patch_sw: take-over injection failed in " + path, file=sys.stderr)
+	sys.exit(1)
+
 open(path, "w").write(src)
 print("patch_sw: service worker now network-first for navigation")
