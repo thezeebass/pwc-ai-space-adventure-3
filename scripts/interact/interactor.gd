@@ -27,6 +27,7 @@ func _ready() -> void:
 func _physics_process(_delta: float) -> void:
 	if InputRouter.ui_blocking:
 		InputRouter.consume_interact()
+		InputRouter.consume_interact_position()
 		_set_target(null)
 		return
 	force_raycast_update()
@@ -35,7 +36,29 @@ func _physics_process(_delta: float) -> void:
 		found = null
 	_set_target(found)
 	if current != null and InputRouter.consume_interact():
+		## A touch tap carries where it landed: the tap must land on the
+		## highlighted console's own orange box, not anywhere on the screen.
+		## The aim path (a click, a key, a controller button) keeps the
+		## reticule rule.
+		var tap: Variant = InputRouter.consume_interact_position()
+		if tap != null and not current.screen_rect_contains(get_viewport().get_camera_3d(), tap):
+			return
 		current.interact(self)
+
+
+## A second ray through the tap's screen position: the console counts as
+## tapped when the ray reaches this interactor's reach with the console's
+## collider as the first hit.
+func _tap_hits_current(screen_position: Vector2) -> bool:
+	var camera := get_viewport().get_camera_3d()
+	if camera == null:
+		return true
+	var from := camera.project_ray_origin(screen_position)
+	var direction := camera.project_ray_normal(screen_position)
+	var params := PhysicsRayQueryParameters3D.create(
+		from, from + direction * target_position.length(), collision_mask)
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(params)
+	return not hit.is_empty() and hit.collider == current
 
 
 func _set_target(next: Interactable) -> void:

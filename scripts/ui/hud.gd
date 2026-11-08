@@ -83,9 +83,23 @@ func _ready() -> void:
 	## save arrived.
 	refresh_objective()
 	_refresh_score()
+	## The speech box is pure information: it never blocks a tap. While
+	## SHIPMIND talks at the top of the screen the box sits over the MENU
+	## button's corner, and a thumb reaching for the menu must not land in
+	## a panel that is only reading aloud.
+	var stack: Array[Node] = [subtitle]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		for child in node.get_children():
+			stack.append(child)
+		if node is Control:
+			(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	## The safe zone is measured against the live viewport, so it re-applies
 	## whenever the window changes shape under us.
 	get_viewport().size_changed.connect(_apply_safe_area)
+	## The screen joins the text-zoom system: the menu's TEXT SIZE choice
+	## re-derives every label here from its design size.
+	TextZoom.register(root)
 
 
 func _process(delta: float) -> void:
@@ -123,10 +137,10 @@ func set_compact(value: bool) -> void:
 func _apply_touch_layout(touch: bool) -> void:
 	if subtitle == null:
 		return
-	## The subtitle reads at the same floor as every other touch popup. The
-	## old double-size step predated the 30px reading floor and shouted.
-	subtitle_text.add_theme_font_size_override("font_size", Brand.SIZE_LABEL)
-	subtitle_speaker.add_theme_font_size_override("font_size", Brand.SIZE_SMALL)
+	## The subtitle reads at the menu's TEXT SIZE choice - the same floor as
+	## every other info popup, at every setting.
+	subtitle_text.add_theme_font_size_override("font_size", Brand.info_text_size)
+	subtitle_speaker.add_theme_font_size_override("font_size", Brand.info_text_size)
 	if touch:
 		subtitle.set_anchors_preset(Control.PRESET_CENTER_TOP)
 		subtitle.anchor_top = 0.0
@@ -144,6 +158,8 @@ func _apply_touch_layout(touch: bool) -> void:
 ## pills, buttons and captions keep a margin from every display edge, and the
 ## subtitle's width clamps to the live viewport instead of a fixed 860px that
 ## a narrow window would push through the margins. Re-applied on resize.
+
+
 func _apply_safe_area() -> void:
 	if root == null:
 		return

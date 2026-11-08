@@ -37,6 +37,7 @@ func _ready() -> void:
 	_build_frame()
 	get_viewport().size_changed.connect(_relayout)
 	_relayout()
+	TextZoom.register(root)
 
 
 func is_open() -> bool:

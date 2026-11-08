@@ -633,6 +633,10 @@ func _on_commit_pressed() -> void:
 	placement_chosen.emit(level_id, _guardrail_choice, _owner_choice)
 	if _puzzle != null and is_instance_valid(_puzzle):
 		_puzzle.place(level_id)
+		_puzzle.solve()
+	## The placement is in and the bay is solved: the completion flow releases
+	## the console and raises the score card (verdict, meters, spectrum). The
+	## decision is never asked twice - a reopen reads the standing record.
 
 
 # --- The level slider ----------------------------------------------------------
@@ -887,6 +891,10 @@ func _on_mobile_placement(level_id: String) -> void:
 	placement_chosen.emit(level_id, "", "")
 	if _puzzle != null and is_instance_valid(_puzzle):
 		_puzzle.place(level_id)
+		_puzzle.solve()
+	## The placement is in and the bay is solved: the completion flow releases
+	## the console and raises the score card (verdict, meters, spectrum). The
+	## decision is never asked twice - a reopen reads the standing record.
 
 
 ## Reveals the readout on a click or a tap. Both are needed: a touchscreen never

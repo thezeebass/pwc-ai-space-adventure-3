@@ -13,6 +13,11 @@ extends RefCounted
 
 static var look_delta: Vector2 = Vector2.ZERO
 static var interact_just_pressed: bool = false
+## The screen position a touch tap landed on, carried through to the
+## interactor so it can require the tap to land on the console itself. Null
+## for aim-path interactions (a click, a key, a controller button), which
+## keep the reticule rule.
+static var interact_position: Variant = null
 static var ui_blocking: bool = false
 
 
@@ -30,10 +35,25 @@ static func queue_interact() -> void:
 	interact_just_pressed = true
 
 
+## A touch tap that wants the console: the position rides along so the
+## interactor can require the tap to land on the highlighted console.
+static func queue_interact_at(position: Vector2) -> void:
+	interact_position = position
+	interact_just_pressed = true
+
+
 static func consume_interact() -> bool:
 	var pressed: bool = interact_just_pressed
 	interact_just_pressed = false
 	return pressed
+
+
+## Returns the tap's screen position when the queued interact carried one,
+## and clears it. Null for aim-path interactions.
+static func consume_interact_position() -> Variant:
+	var position: Variant = interact_position
+	interact_position = null
+	return position
 
 
 static func set_ui_blocking(value: bool) -> void:
@@ -41,3 +61,4 @@ static func set_ui_blocking(value: bool) -> void:
 	if value:
 		look_delta = Vector2.ZERO
 		interact_just_pressed = false
+		interact_position = null

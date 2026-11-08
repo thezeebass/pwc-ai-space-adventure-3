@@ -1,11 +1,9 @@
 extends Node
 
-## Observes the existing boot, intro, main-scene and launch flow without
-## changing those scripts. The browser cover is removed only after Godot has
+## Observes the existing boot, intro and main-scene flow without changing
+## those scripts. The browser cover is removed only after Godot has
 ## presented a real frame; otherwise the HTML shell would disappear as soon as
 ## the WASM/PCK download finished and expose the old grey gap.
-
-var _session_transition := false
 
 
 func _enter_tree() -> void:
@@ -34,9 +32,6 @@ func _on_node_added(node: Node) -> void:
 		"game.gd":
 			_mark("main.added")
 			node.ready.connect(_on_main_ready, CONNECT_ONE_SHOT)
-		"launch_screen.gd":
-			if node.has_signal("begun"):
-				node.connect("begun", _on_launch_begun)
 		"kit_shell.gd", "station_dressing.gd", "ship_hull.gd", "ship_exterior.gd":
 			var stage := file.get_basename()
 			_mark(stage + ".begin")
@@ -61,24 +56,6 @@ func _on_intro_finished() -> void:
 func _on_main_ready() -> void:
 	_mark("main.ready")
 	_hide_after_draw()
-
-
-func _on_launch_begun() -> void:
-	if _session_transition:
-		return
-	_session_transition = true
-	_mark("session.begin")
-	show_cover("Preparing Adamant Verity", "Restoring deck control and preparing the first playable view…")
-	_finish_session_transition()
-
-
-func _finish_session_transition() -> void:
-	await RenderingServer.frame_post_draw
-	await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	_mark("session.first_frame")
-	hide_cover()
-	_session_transition = false
 
 
 func _hide_after_draw() -> void:

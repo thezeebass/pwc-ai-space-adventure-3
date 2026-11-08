@@ -80,13 +80,31 @@ const SIZE_TUI_SMALL := 30
 ## The screen title, in the machine voice, a step above the body floor.
 const SIZE_TUI_TITLE := 36
 
+## The menu's TEXT SIZE control writes it; every info popup reads it. Defaults
+## to the reading floor (L), and load_data() restores the saved choice.
+static var info_text_size: int = 30
+
+## The multiplier the UI text derives from that choice (L = 1.0, M = 0.933,
+## S = 0.8). Anything that should follow the setting asks scaled() with the
+## size it was designed at.
+static func text_scale() -> float:
+	return float(info_text_size) / 30.0
+
+
+static func scaled(base: int) -> int:
+	return maxi(int(round(base * text_scale())), 16)
+
 ## Console screens carry the most text in the game, so their type runs at a
 ## scale of its own - 10% under the floor for now. One constant retunes every
 ## console screen at once; raise or lower to taste.
 const CONSOLE_TEXT_SCALE := 0.9
 
 static func console_size(base: int) -> int:
-	return int(round(base * CONSOLE_TEXT_SCALE))
+	## The console screens keep their own -10% step (they carry the most
+	## text), but that step rides on top of the menu's TEXT SIZE setting:
+	## L keeps the approved 27px readouts, M and S take the consoles down
+	## with everything else.
+	return int(round(base * text_scale() * CONSOLE_TEXT_SCALE))
 
 static var _tui_font: Font = null
 

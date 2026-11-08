@@ -121,11 +121,7 @@ func _ready() -> void:
 	dim.gui_input.connect(_on_dim_input)
 	## The machine voice is the flyouts' own face; the band and footer are the
 	## console's chrome, so they read in the machine voice too.
-	Brand.apply_tui(band_title, Brand.console_size(Brand.SIZE_TUI_TITLE))
-	Brand.apply_tui(band_status, Brand.console_size(Brand.SIZE_TUI_SMALL))
-	Brand.apply_tui(footer, Brand.console_size(Brand.SIZE_TUI_SMALL))
-	Brand.apply_tui(readout_title, Brand.console_size(Brand.SIZE_TUI_TITLE))
-	Brand.apply_tui(shipmind_title, Brand.console_size(Brand.SIZE_TUI_TITLE))
+	_apply_console_text_size()
 	readout_close.pressed.connect(func() -> void: _close_overlay("readout"))
 	shipmind_close.pressed.connect(func() -> void: _close_overlay("shipmind"))
 	_build_close_button()
@@ -134,6 +130,17 @@ func _ready() -> void:
 	root.visible = false
 	readout_overlay.visible = false
 	shipmind_overlay.visible = false
+	TextZoom.register(root)
+
+
+## The console's type re-derives from the menu's TEXT SIZE choice and its own
+## -10% step; called at ready and whenever the setting changes mid-session.
+func _apply_console_text_size() -> void:
+	Brand.apply_tui(band_title, Brand.console_size(Brand.SIZE_TUI_TITLE))
+	Brand.apply_tui(band_status, Brand.console_size(Brand.SIZE_TUI_SMALL))
+	Brand.apply_tui(footer, Brand.console_size(Brand.SIZE_TUI_SMALL))
+	Brand.apply_tui(readout_title, Brand.console_size(Brand.SIZE_TUI_TITLE))
+	Brand.apply_tui(shipmind_title, Brand.console_size(Brand.SIZE_TUI_TITLE))
 
 
 ## True on a device whose only pointer is a finger.
@@ -588,6 +595,7 @@ func _add_flyout_line(body: VBoxContainer, value: String, tone: String) -> void:
 	label.modulate = TONES.get(tone, TONES["data"])
 	label.text = ("SHIPMIND:  " + value) if tone == "shipmind" else value
 	body.add_child(label)
+	TextZoom.apply_node(label)
 
 
 const TONES := {

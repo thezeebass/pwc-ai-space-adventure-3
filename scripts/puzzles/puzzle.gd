@@ -48,17 +48,15 @@ func _ready() -> void:
 
 
 func start() -> void:
-	if is_decision_bay() and GameState.has_placement(puzzle_id):
-		## Reopening a placed bay returns straight to its decision surface. The
-		## placement can be replaced without a separate read-back screen.
-		is_solved = false
-		state_changed.emit(intro_state())
-		return
 	if is_solved or GameState.is_restored(puzzle_id) or GameState.has_placement(puzzle_id):
 		# A placed decision reads back as a record instead of asking the crew to
 		# decide it twice - including one placed and never released, which a
 		# reload would otherwise offer the spectrum to all over again.
-		is_solved = true
+		## A decision bay may revise from the record, so its solve must be able
+		## to run again after a re-commit. The helm is not a decision bay: it
+		## stays solved so a second release cannot relaunch the ship.
+		if is_decision_bay():
+			is_solved = false
 		state_changed.emit(done_state())
 		return
 	if not is_decision_bay():
@@ -115,6 +113,8 @@ func done_state() -> ScreenState:
 	state.rule()
 	state.dim("This console reads the record back. The decision is not asked for twice.")
 	state.rule()
+	if GameState.has_placement(puzzle_id) and is_decision_bay():
+		state.option("revise", "Change the decision", "Free. No charge to reconsider.", "primary")
 	state.option("close", "Leave the console")
 	return state
 
@@ -163,6 +163,11 @@ func not_placed_state() -> ScreenState:
 func choose(option_id: String) -> void:
 	if option_id == "return":
 		solve()
+		return
+	if option_id == "revise" and is_decision_bay():
+		## Back to the decision surface from the standing record. Bays that
+		## handle "revise" in their own choose() never reach this fallback.
+		state_changed.emit(intro_state())
 		return
 	push_warning("Puzzle '%s' ignored unknown option '%s'" % [puzzle_id, option_id])
 

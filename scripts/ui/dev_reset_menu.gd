@@ -40,6 +40,8 @@ func _ready() -> void:
 	restore_button.pressed.connect(_on_restore_all)
 	reload_button.pressed.connect(_on_reload_only)
 	close_button.pressed.connect(close)
+	TextZoom.register(root)
+	TextZoom.register(root)
 
 
 func is_open() -> bool:

@@ -48,6 +48,64 @@ func set_highlighted(value: bool) -> void:
 			node.visible = value
 
 
+## The orange box, as the player sees it: the aim outline's world box
+## projected onto the screen. A tap inside this rectangle is a tap on the
+## console. An empty rect means the box is not on screen at all.
+func screen_rect(camera: Camera3D) -> Rect2:
+	if _highlight_nodes.is_empty():
+		return Rect2()
+	var source: Node3D = _highlight_nodes[0]
+	var aabb := _world_aabb(source)
+	if aabb.size == Vector3.ZERO:
+		return Rect2()
+	var corners: Array[Vector3] = [
+		aabb.position,
+		aabb.position + Vector3(aabb.size.x, 0, 0),
+		aabb.position + Vector3(0, aabb.size.y, 0),
+		aabb.position + Vector3(aabb.size.x, aabb.size.y, 0),
+		aabb.position + Vector3(0, 0, aabb.size.z),
+		aabb.position + Vector3(aabb.size.x, 0, aabb.size.z),
+		aabb.position + Vector3(0, aabb.size.y, aabb.size.z),
+		aabb.end,
+	]
+	var rect := Rect2()
+	var started := false
+	for corner in corners:
+		if camera.is_position_behind(corner):
+			return Rect2()
+		var point: Vector2 = camera.unproject_position(corner)
+		if started:
+			rect = rect.expand(point)
+		else:
+			rect = Rect2(point, Vector2.ZERO)
+			started = true
+	return rect.grow(12.0)
+
+
+func screen_rect_contains(camera: Camera3D, position: Vector2) -> bool:
+	var rect := screen_rect(camera)
+	return rect.size != Vector2.ZERO and rect.has_point(position)
+
+
+static func _world_aabb(node: Node3D) -> AABB:
+	var result := AABB()
+	var started := false
+	var stack: Array[Node] = [node]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for child in n.get_children():
+			stack.append(child)
+		if n is MeshInstance3D:
+			var mesh_aabb: AABB = (n as MeshInstance3D).get_aabb()
+			var world: AABB = (n as MeshInstance3D).global_transform * mesh_aabb
+			if started:
+				result = result.merge(world)
+			else:
+				result = world
+				started = true
+	return result
+
+
 func flash() -> void:
 	## Short visual acknowledgement so every input has feedback.
 	var target: Node3D = _highlight_nodes[0] if not _highlight_nodes.is_empty() else null

@@ -173,6 +173,13 @@ func play() -> void:
 	_hud = get_node_or_null("../../UI/HUD") as CanvasLayer
 	if _hud != null:
 		_hud.visible = false
+	## The sticks have no business over the last shot either: on a touchscreen
+	## they are visible by their own always-on rule, so suppression - not the
+	## mode switch - is what takes them off the screen for the departure. They
+	## come back with the HUD on finish.
+	var touch := get_node_or_null("../../UI/TouchControls") as TouchControls
+	if touch != null:
+		touch.set_suppressed(true)
 	if _engine_glow != null:
 		_engine_glow.light_energy = 0.6
 	_drive_engines()
@@ -670,6 +677,9 @@ func _finish() -> void:
 		_fill.light_energy = 0.0
 	if _hud != null and is_instance_valid(_hud):
 		_hud.visible = true
+	var touch := get_node_or_null("../../UI/TouchControls") as TouchControls
+	if touch != null:
+		touch.set_suppressed(false)
 	## Order matters: the crew's camera has to be made current BEFORE this one
 	## stands down, or the viewport would briefly have no camera at all.
 	if _player_camera != null and is_instance_valid(_player_camera):

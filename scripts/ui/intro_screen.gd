@@ -108,6 +108,7 @@ func _ready() -> void:
 	## The strip is sized from the frame's real width, which is not resolved
 	## until the first layout pass - so it is measured once more after it is.
 	_size_strip.call_deferred()
+	TextZoom.register(_root)
 
 
 ## Which way is the screen held? Portrait - taller than it is wide - stacks

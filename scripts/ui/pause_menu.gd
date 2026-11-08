@@ -5,10 +5,9 @@ extends CanvasLayer
 ##
 ## Three jobs, in the order a player needs them: RESUME (the common case, so it
 ## is the primary button), the music switch (so muting the soundtrack does not
-## require leaving the run), the input mode chips (the same test switch the
-## launch screen carries, usable mid-run), and MAIN MENU - the explicit door
-## back to the title card, which pauses the clock and re-opens the briefing
-## with the run's record already on it.
+## require leaving the run), the input mode chips (the test switch, usable
+## mid-run), and MAIN MENU - the explicit door out of the run, which wipes the
+## record and reloads the ship: a clean start from the top.
 ##
 ## Escape opens and closes this menu. While it is up the run clock is stopped -
 ## GameState.tick only advances while run_running, and the menu owns that flag
@@ -31,6 +30,7 @@ const MUTED := Color(0.72, 0.66, 0.62)
 var _root: Control = null
 var _card: PanelContainer = null
 var _resume_button: Button = null
+var _text_size_buttons: Dictionary = {}
 var _reset_button: Button = null
 var _reset_confirm: HBoxContainer = null
 var _reset_note: Label = null
@@ -44,6 +44,7 @@ func _ready() -> void:
 	layer = 110
 	_build()
 	visible = false
+	TextZoom.register(_root)
 
 
 func is_open() -> bool:
@@ -60,6 +61,7 @@ func open() -> void:
 	# The clock stops while the crew are in the menu, and restarts on RESUME.
 	GameState.run_running = false
 	_disarm_reset()
+	_refresh_text_size_chips()
 	# The menu is keyboard- and gamepad-reachable from here: focus lands on
 	# RESUME, and Tab walks on to the SHIPMIND BOARD.
 	if _resume_button != null:
@@ -99,13 +101,29 @@ func main_menu() -> void:
 ## the card stay underneath, unreachable while the full-rect board is up, and
 ## closing the board simply reveals the menu again. No controller wiring is
 ## needed - the clock is stopped and the input block is already held by open().
+func _on_text_size(size: int) -> void:
+	GameState.ui_text_size = size
+	GameState.save()
+	## One call re-derives every registered screen - including this menu,
+	## live, while it is open.
+	TextZoom.set_size(size)
+
+
+func _refresh_text_size_chips() -> void:
+	for value in _text_size_buttons:
+		var chip: Button = _text_size_buttons[value]
+		chip.set_pressed_no_signal(int(value) == GameState.ui_text_size)
+
+
 func _open_board() -> void:
 	if _board != null:
 		return
 	_board = ShipmindLeaderboard.new()
 	add_child(_board)
 	_board.closed.connect(_close_board)
-	_board.show_board()
+	## Same note as the completion screen's uplink: the board assembles itself
+	## one frame after it enters the tree, so the fetch starts on that frame.
+	_board.call_deferred("show_board")
 	_root.visible = false
 
 
@@ -225,6 +243,45 @@ func _build() -> void:
 	var audio_panel := AudioPanel.new()
 	audio_panel.name = "AudioPanel"
 	column.add_child(audio_panel)
+
+	## TEXT SIZE: how large the info popups read - SHIPMIND speech, prompts,
+	## the walkthrough cards. S and M dip under the reading floor on purpose;
+	## L is the floor itself.
+	column.add_child(_spacer(6))
+	var size_caption := Label.new()
+	size_caption.text = "TEXT SIZE"
+	size_caption.add_theme_font_size_override("font_size", 30)
+	size_caption.add_theme_color_override("font_color", MUTED)
+	column.add_child(size_caption)
+	var size_row := HBoxContainer.new()
+	size_row.add_theme_constant_override("separation", 6)
+	var size_group := ButtonGroup.new()
+	size_group.allow_unpress = false
+	for option in [[24, "S"], [28, "M"], [30, "L"]]:
+		var chip := Button.new()
+		chip.text = option[1]
+		chip.toggle_mode = true
+		chip.button_group = size_group
+		chip.focus_mode = Control.FOCUS_NONE
+		chip.add_theme_font_size_override("font_size", 30)
+		chip.add_theme_color_override("font_color", MUTED)
+		chip.add_theme_color_override("font_hover_color", WHITE)
+		chip.add_theme_color_override("font_pressed_color", Color(0.1, 0.06, 0.04))
+		var idle := _ghost_style()
+		chip.add_theme_stylebox_override("normal", idle)
+		var hovered := _ghost_style()
+		hovered.border_color = TANGERINE
+		chip.add_theme_stylebox_override("hover", hovered)
+		var chosen := _ghost_style()
+		chosen.bg_color = GOLD
+		chosen.border_color = GOLD
+		chip.add_theme_stylebox_override("pressed", chosen)
+		chip.add_theme_stylebox_override("focus", idle)
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		chip.pressed.connect(_on_text_size.bind(int(option[0])))
+		_text_size_buttons[int(option[0])] = chip
+		size_row.add_child(chip)
+	column.add_child(size_row)
 
 	column.add_child(_spacer(10))
 	var menu_button := Button.new()

@@ -524,7 +524,6 @@ func _build_decision_controls(state: ScreenState) -> void:
 	_commit.name = "Commit"
 	_commit.text = String(spectrum.get("submit_label", "MAKE THE DECISION"))
 	_commit.focus_mode = Control.FOCUS_NONE
-	_commit.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_commit.custom_minimum_size = Vector2(0.0, Platform.touch_target(54.0))
 	_commit.add_theme_font_size_override("font_size", Brand.SIZE_DATA)
 	_commit.add_theme_color_override("font_color", Color.WHITE)
@@ -551,22 +550,22 @@ func _make_chip(level_id: String, label: String) -> Button:
 	chip.button_group = _level_group
 	chip.focus_mode = Control.FOCUS_NONE
 	chip.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	chip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	chip.custom_minimum_size = Vector2(0.0, 88.0)
+	chip.custom_minimum_size = Vector2(0.0, Platform.touch_target(52.0))
 	chip.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	chip.add_theme_font_size_override("font_size", Brand.SIZE_COMPACT)
+	chip.add_theme_font_size_override("font_size", Brand.scaled(Brand.SIZE_COMPACT))
 	chip.add_theme_color_override("font_color", quiet_ink)
 	chip.add_theme_color_override("font_pressed_color", ink)
 	var rest := Color(fill.r, fill.g, fill.b, 0.62)
 	chip.add_theme_stylebox_override("normal", _chip_box(rest, Color(0.0, 0.0, 0.0, 0.0)))
 	chip.add_theme_stylebox_override("pressed", _chip_box(fill, Color(1.0, 1.0, 1.0, 0.95)))
 	chip.add_theme_stylebox_override("disabled", _chip_box(rest, Color(0.0, 0.0, 0.0, 0.0)))
+	## One line: the icon rides at the left edge, the name centred beside it.
 	var glyph := Glyph.make(Glyph.icon_for_level(level_id), 30.0, quiet_ink)
-	glyph.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	glyph.offset_left = -15.0
-	glyph.offset_right = 15.0
-	glyph.offset_top = 10.0
-	glyph.offset_bottom = 40.0
+	glyph.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	glyph.offset_left = 16.0
+	glyph.offset_right = 48.0
+	glyph.offset_top = -16.0
+	glyph.offset_bottom = 16.0
 	chip.add_child(glyph)
 	chip.toggled.connect(func(on: bool) -> void: glyph.tint = ink if on else quiet_ink)
 	return chip
@@ -574,7 +573,8 @@ func _make_chip(level_id: String, label: String) -> Button:
 
 func _chip_box(background: Color, border: Color) -> StyleBoxFlat:
 	var box := _box(background, border)
-	box.content_margin_top = 46.0
+	box.content_margin_left = 44.0
+	box.content_margin_top = 8.0
 	box.content_margin_bottom = 8.0
 	return box
 

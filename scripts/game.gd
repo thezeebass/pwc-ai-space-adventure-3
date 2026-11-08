@@ -13,7 +13,6 @@ const DESKTOP_RIG_PATH := "res://scenes/player/player.tscn"
 @onready var hud: HUD = $UI/HUD
 @onready var terminal: TerminalUI = $UI/TerminalUI
 @onready var principle_card: PrincipleCard = $UI/PrincipleCard
-@onready var launch_screen: LaunchScreen = $UI/LaunchScreen
 @onready var pause_menu: PauseMenu = $UI/PauseMenu
 @onready var completion: CompletionScreen = $UI/CompletionScreen
 
@@ -40,11 +39,6 @@ func _ready() -> void:
 	terminal.opened.connect(_on_terminal_opened)
 	terminal.closed.connect(_on_overlay_closed)
 	principle_card.closed.connect(_on_overlay_closed)
-	if launch_screen != null:
-		if not launch_screen.begun.is_connected(_on_session_begin):
-			launch_screen.begun.connect(_on_session_begin)
-		if not launch_screen.intro_requested.is_connected(_on_intro_requested):
-			launch_screen.intro_requested.connect(_on_intro_requested)
 	## The end of the run: the cutscene hands the camera back to the crew in the
 	## cockpit, and the completion screen then states what the five decisions
 	## added up to. It is the only screen that reads the whole run at once.
@@ -70,33 +64,28 @@ func _ready() -> void:
 	await get_tree().process_frame
 	if OS.is_debug_build():
 		print("[Sfx] ", Sfx.debug_state())
-	## The crew declares the mandate before the run begins. A fresh session gets
-	## the intro first; a resumed session returns directly to the mandate screen.
+	## The mandate is fixed and the landing screen is gone: the ship loads
+	## straight into play, with the narrative intro (when one is wanted) the
+	## only thing standing between the crew and the corridor.
 	var intro := get_node_or_null("UI/IntroScreen") as IntroScreen
-	if launch_screen != null:
-		launch_screen.hide_screen()
 	if intro != null and not get_tree().has_meta("shipmind_intro_played"):
 		hud.visible = false
 		intro.finished.connect(_on_intro_finished)
 	else:
 		if intro != null:
 			intro.visible = false
-		if launch_screen != null:
-			launch_screen.show_screen()
-		else:
-			_on_session_begin()
+		_on_session_begin()
 
 
-## The intro has told its three beats. The crew declares the mandate before
-## taking the ship.
+## The intro has told its three beats. The crew takes the ship directly - the
+## mandate card is retired, so the story hands straight over to the corridor.
 func _on_intro_finished() -> void:
 	get_tree().set_meta("shipmind_intro_played", true)
-	if launch_screen != null:
-		launch_screen.show_screen()
-	else:
-		_on_session_begin()
-## "Back to the title card" starts a clean run. The full reset wipes the record
-## and reloads the scene, where the crew can declare a fresh mandate.
+	_on_session_begin()
+## "Back to the title card" now means "start the run again": the mandate card
+## is retired, so there is no screen to hand back to. The full reset wipes the
+## record and reloads the scene, which is exactly the clean start the crew is
+## asking for when they leave the run.
 func _on_main_menu_requested() -> void:
 	GameState.clear_save()
 	InputRouter.set_ui_blocking(false)
@@ -114,37 +103,26 @@ func _on_reset_requested() -> void:
 	get_tree().call_deferred("reload_current_scene")
 
 
-## The crew asked for the story again from the mandate card. The card steps
-## aside - so Enter cannot begin the session underneath the telling - and the
-## narrative plays over everything until it hands back.
-func _on_intro_requested() -> void:
-	var launch := get_node_or_null("UI/LaunchScreen") as LaunchScreen
-	var intro := get_node_or_null("UI/IntroScreen") as IntroScreen
-	if intro != null:
-		if launch != null:
-			launch.hide_screen()
-		intro.replay()
-
-
 ## The run starts here. The clock begins at the moment the crew takes the ship,
 ## not when the title card loads, so reading the briefing is not billed to them.
 func _on_session_begin() -> void:
 	hud.visible = true
-	## The intro and mandate overlays hold input while they are open; the corridor
-	## needs it back the moment the crew takes the ship.
+	## The landing card is gone, so its hand-over duty lives here: the intro
+	## holds the input block while it tells, and the corridor needs it back
+	## the moment the crew takes the ship.
 	InputRouter.set_ui_blocking(false)
 	GameState.begin_run()
 	_announce_boot()
-	## The crew have the ship: the cursor is taken back here as well as in the
-	## launch card's own hand-over, because a capture requested while a window is
+	## The crew have the ship: the cursor is taken back here as well as at the
+	## close of any overlay, because a capture requested while a window is
 	## still coming up is refused, and the first look must work without a click.
 	_grab_cursor_back()
 
 
 ## Platform selection. The input mode layer decides - hardware detection first,
-## with the launch screen's test chips able to override it for the session -
-## and this controller re-wires the rig, the touch layer and the HUD whenever
-## it changes.
+## with the pause menu's mode chips able to override it for the session - and
+## this controller re-wires the rig, the touch layer and the HUD whenever it
+## changes.
 func _activate_player() -> Node3D:
 	InputMode.ensure_detected()
 	var default_player: Node3D = get_node_or_null("Player") as Node3D
@@ -183,8 +161,6 @@ func _on_back_requested() -> void:
 		return
 	if pause_menu != null and pause_menu.is_open():
 		pause_menu.close()
-		return
-	if launch_screen != null and launch_screen.is_open():
 		return
 	if pause_menu != null:
 		pause_menu.open()
@@ -275,7 +251,7 @@ func _restore_desktop_environment() -> void:
 	_desktop_environment = null
 
 
-## The same hand-back the launch screen does on BEGIN: whoever owns the
+## The same hand-back every overlay close performs: whoever owns the
 ## "input_layer" group decides whether the cursor may be captured, and in a
 ## touch or XR mode it will decline on its own. Refused while an overlay owns
 ## the input - a mode flip inside the pause menu must not capture the cursor

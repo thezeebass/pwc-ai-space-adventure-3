@@ -11,21 +11,22 @@ extends CanvasLayer
 ## client's own ramp, so the shape of the run and the cost of it are read
 ## together rather than in a list of sentences.
 ##
-## Under the matrix is the one thing left to do: put the run on the board. The
-## board is the live SHIPMIND uplink - the network leaderboard behind the CRT
-## terminal screen, stored on the server so the whole venue can see it. The
-## uplink client queues submissions on disk when the network is down, so the
-## flow cannot lose a run even in a conference basement.
+## Under the matrix is the one thing left to do: log the run on the SHIPMIND
+## uplink. The button raises the uplink's own screen (see ShipmindLeaderboard)
+## over this one - the network board, shared by every device the crew fly
+## from - with the run's score carried in and the callsign asked for there.
+## This screen holds no form and keeps no board of its own: one board, the
+## uplink, and one way onto it.
 ##
 ## PLATFORM NOTE. Everything here is pointer-driven - a click, a tap, a
 ## controller-driven pointer - and no control needs a keyboard to be dismissed.
-## A headset has no keyboard, so the fields are pre-filled with what the save
-## already knows and the form accepts a run without contact details there; on
-## desktop and on a phone the contact is asked for properly.
+## The callsign is typed on the uplink screen, which carries its own
+## touch-sized entry row, so a headset can log a run without this screen ever
+## showing a text field.
 
 signal closed
 
-const ORANGE := Brand.ACCENT
+const ORANGE := ScoreVisuals.ORANGE
 const PEACH := ScoreVisuals.PEACH
 const OFF_WHITE := ScoreVisuals.OFF_WHITE
 const SLATE := ScoreVisuals.SLATE
@@ -33,9 +34,10 @@ const SLATE := ScoreVisuals.SLATE
 var _open: bool = false
 var _root: Control = null
 var _panel: PanelContainer = null
+var _scroll: ScrollContainer = null
 var _content: VBoxContainer = null
-## The live SHIPMIND uplink screen while it is up, hosted inside this layer.
-var _board: ShipmindLeaderboard = null
+## The SHIPMIND standings screen while it is up, hosted inside this layer.
+var _uplink: ShipmindLeaderboard = null
 
 
 func _ready() -> void:
@@ -43,6 +45,7 @@ func _ready() -> void:
 	_build_shell()
 	get_viewport().size_changed.connect(_relayout)
 	root_visible(false)
+	TextZoom.register(_root)
 
 
 func is_open() -> bool:
@@ -56,6 +59,7 @@ func show_screen() -> void:
 	root_visible(true)
 	_rebuild()
 	_relayout()
+	TextZoom.apply(_root)
 	InputRouter.set_ui_blocking(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -77,8 +81,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not _open:
 		return
 	if event.is_action_pressed("ui_cancel"):
-		# The first escape closes the uplink screen if it is up, not the run.
-		if _board != null:
+		## While the uplink is up the first escape is its own: the board closes
+		## and hands the results back, and only a second one leaves the ship.
+		if _uplink != null:
 			_close_uplink_board()
 		else:
 			close()
@@ -98,7 +103,7 @@ func _build_shell() -> void:
 	var backdrop := ColorRect.new()
 	backdrop.name = "Backdrop"
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.color = Color(Brand.SURFACE.r, Brand.SURFACE.g, Brand.SURFACE.b, 0.92)
+	backdrop.color = Color(0.02, 0.016, 0.014, 0.9)
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(backdrop)
 
@@ -115,18 +120,23 @@ func _build_shell() -> void:
 
 	var margin := MarginContainer.new()
 	margin.name = "Margin"
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
+	margin.add_theme_constant_override("margin_left", _px(34))
+	margin.add_theme_constant_override("margin_right", _px(34))
+	margin.add_theme_constant_override("margin_top", 22)
+	margin.add_theme_constant_override("margin_bottom", 18)
 	_panel.add_child(margin)
+
+	_scroll = ScrollContainer.new()
+	_scroll.name = "Scroll"
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(_scroll)
 
 	_content = VBoxContainer.new()
 	_content.name = "Content"
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_content.add_theme_constant_override("separation", 5)
-	margin.add_child(_content)
+	_content.add_theme_constant_override("separation", _px(9))
+	_scroll.add_child(_content)
 
 
 func root_visible(value: bool) -> void:
@@ -139,22 +149,19 @@ func _rebuild() -> void:
 	_build_results_page()
 
 
-## PAGE ONE: WHAT THE RUN ADDED UP TO. Nothing to fill in, nothing to scroll to -
-## one action, which is the way on.
+## THE ONE PAGE: WHAT THE RUN ADDED UP TO. Nothing to fill in, nothing to
+## scroll to - the run as a picture, the uplink, and the way back to the ship.
 func _build_results_page() -> void:
+	_content.add_child(_kicker("THE RUN IS FLOWN  —  ADAMANT VERITY UNDER WAY"))
 	_content.add_child(_title("MISSION COMPLETE"))
 	_content.add_child(_summary_row())
-	var mandate := Label.new()
-	mandate.text = "YOUR MANDATE  %s" % OperatingModel.mandate_statement()
-	mandate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	mandate.add_theme_font_size_override("font_size", _px(12))
-	mandate.add_theme_color_override("font_color", Brand.NEUTRAL_LIGHT)
-	_content.add_child(mandate)
+	_content.add_child(ScoreVisuals.caption(
+		"Your mandate: %s" % OperatingModel.mandate_statement(), Brand.NEUTRAL))
 	_content.add_child(_rule())
 	_content.add_child(_section("YOUR FIVE DECISIONS"))
 	_content.add_child(_matrix())
-	_content.add_child(_gap(_px(4)))
-	_content.add_child(_results_actions())
+	_content.add_child(_gap(_px(8)))
+	_content.add_child(_uplink_actions())
 
 
 # --- The run, as a picture -----------------------------------------------------------
@@ -164,22 +171,42 @@ func _build_results_page() -> void:
 ## and the verdict it earns - beside the two axes the total is made of.
 func _summary_row() -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", _px(12))
+	row.add_theme_constant_override("separation", _px(26))
 
 	var score_box := VBoxContainer.new()
-	score_box.add_theme_constant_override("separation", _px(3))
-	score_box.custom_minimum_size = Vector2(_px(130), 0.0)
+	score_box.add_theme_constant_override("separation", 4)
+	score_box.custom_minimum_size = Vector2(_px(190), 0.0)
 	score_box.add_child(_section("RUN SCORE"))
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 6)
 	var total := Label.new()
-	total.text = "%d / %d" % [Score.total(), Score.max_total()]
-	total.add_theme_font_size_override("font_size", _px(24))
+	total.text = "%d" % Score.total()
+	total.add_theme_font_size_override("font_size", _px(40))
 	total.add_theme_color_override("font_color", Brand.INK)
-	score_box.add_child(total)
+	line.add_child(total)
+	var ceiling := Label.new()
+	ceiling.text = "/ %d" % Score.max_total()
+	ceiling.add_theme_font_size_override("font_size", _px(18))
+	ceiling.add_theme_color_override("font_color", Brand.NEUTRAL)
+	ceiling.size_flags_vertical = Control.SIZE_SHRINK_END
+	line.add_child(ceiling)
+	score_box.add_child(line)
+
+	var quality: float = _mean_quality()
+	if quality >= 0.0:
+		var verdict := ScoreVisuals.pill(Score.grade_label(quality).to_upper(),
+			ScoreVisuals.grade_color(quality), ScoreVisuals.grade_ink(quality),
+			_px(13), Vector2(10.0, 5.0))
+		verdict.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		score_box.add_child(verdict)
 	var progress := ScoreVisuals.Meter.new()
-	progress.custom_minimum_size = Vector2(0.0, _px(6))
+	progress.custom_minimum_size = Vector2(0.0, 10.0)
 	progress.fill_color = ORANGE
 	progress.show_ratio(float(Score.total()) / maxf(float(Score.max_total()), 1.0))
 	score_box.add_child(progress)
+	score_box.add_child(ScoreVisuals.caption(
+		"%d of %d decisions placed" % [Score.placed_count(), GameState.SYSTEMS.size()],
+		Brand.NEUTRAL))
 	row.add_child(score_box)
 
 	var axes := GridContainer.new()
@@ -188,7 +215,7 @@ func _summary_row() -> Control:
 	axes.add_theme_constant_override("h_separation", 24)
 	axes.add_theme_constant_override("v_separation", 10)
 	var consistency := ScoreVisuals.meter_block("MATCHES YOUR MANDATE", Score.mean_consistency(),
-		Brand.ACCENT, _axis_word(Score.mean_consistency()), true)
+		Brand.ACCENT_TINT, _axis_word(Score.mean_consistency()), true)
 	consistency.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	axes.add_child(consistency)
 	var coherence := ScoreVisuals.meter_block("FITS THE STAKES", Score.mean_coherence(),
@@ -205,42 +232,71 @@ func _summary_row() -> Control:
 ## too - a run that never leaves the first column says something.
 func _matrix() -> Control:
 	var grid := GridContainer.new()
-	grid.name = "Decisions"
-	var view: Vector2 = get_viewport().get_visible_rect().size
-	grid.columns = 3 if view.x >= 1200.0 else 2
+	grid.name = "Matrix"
+	grid.columns = 6
 	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 4)
+	grid.add_theme_constant_override("v_separation", 6)
+
+	grid.add_child(_cell_label("DECISION", 10, Brand.NEUTRAL))
+	for level in OperatingModel.LEVELS:
+		var level_id: String = String(level.get("id", ""))
+		var head := ScoreVisuals.pill(OperatingModel.level_short(level_id),
+			OperatingModel.level_color(level_id),
+			ScoreVisuals.INK if OperatingModel.level_dark_text(level_id) else ScoreVisuals.INK_LIGHT,
+			_px(10), Vector2(8.0, 5.0))
+		head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(head)
+	grid.add_child(_cell_label("SCORE", 10, Brand.NEUTRAL))
 
 	for system_id in GameState.SYSTEMS:
-		var card := PanelContainer.new()
-		card.custom_minimum_size = Vector2(0.0, _px(44))
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var style := StyleBoxFlat.new()
-		style.bg_color = Brand.SURFACE_RAISED
-		style.border_color = Color(Brand.ACCENT.r, Brand.ACCENT.g, Brand.ACCENT.b, 0.45)
-		style.set_border_width_all(1)
-		style.set_corner_radius_all(2)
-		style.content_margin_left = 8.0
-		style.content_margin_right = 8.0
-		style.content_margin_top = 4.0
-		style.content_margin_bottom = 4.0
-		card.add_theme_stylebox_override("panel", style)
-		var body := HBoxContainer.new()
-		body.add_theme_constant_override("separation", 5)
-		card.add_child(body)
-		var name_label := _cell_label(GameState.display_name(system_id), 12, Brand.NEUTRAL_LIGHT)
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		body.add_child(name_label)
-		var level_id := String(GameState.placement(system_id).get("level", ""))
-		var level_fill: Color = OperatingModel.level_color(level_id)
-		var level_ink: Color = ScoreVisuals.INK if OperatingModel.level_dark_text(level_id) else ScoreVisuals.INK_LIGHT
-		var level_text := "NOT PLACED" if level_id == "" else OperatingModel.level_short(level_id)
-		var level_chip := ScoreVisuals.pill(level_text, level_fill, level_ink, _px(11), Vector2(6.0, 2.0))
-		level_chip.tooltip_text = OperatingModel.level_summary(level_id) if level_id != "" else "No decision placed"
-		body.add_child(level_chip)
-		body.add_child(_score_chip(system_id))
-		grid.add_child(card)
+		grid.add_child(_row_name(system_id))
+		var chosen: String = String(GameState.placement(system_id).get("level", ""))
+		for level in OperatingModel.LEVELS:
+			grid.add_child(_matrix_cell(system_id, String(level.get("id", "")), chosen))
+		grid.add_child(_score_chip(system_id))
 	return grid
+
+
+func _row_name(system_id: String) -> Control:
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(_px(150), 0.0)
+	box.add_theme_constant_override("separation", 0)
+	var name_label := Label.new()
+	name_label.text = GameState.display_name(system_id)
+	name_label.add_theme_font_size_override("font_size", _px(13))
+	name_label.add_theme_color_override("font_color", Brand.INK)
+	box.add_child(name_label)
+	var tag: Dictionary = OperatingModel.decision_tag(system_id)
+	var stakes := Label.new()
+	stakes.text = "%s STAKES  ·  %s TO UNDO" % [
+		String(tag.get("consequence_word", "")), String(tag.get("reversibility_word", ""))]
+	stakes.add_theme_font_size_override("font_size", _px(9))
+	stakes.add_theme_color_override("font_color", Brand.NEUTRAL)
+	box.add_child(stakes)
+	return box
+
+
+func _matrix_cell(system_id: String, level_id: String, chosen: String) -> Control:
+	var picked: bool = level_id == chosen and chosen != ""
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(0.0, _px(36))
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var fill: Color = OperatingModel.level_color(level_id)
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill if picked else Color(fill.r, fill.g, fill.b, 0.12)
+	style.border_color = Color(1.0, 1.0, 1.0, 0.9) if picked else Color(fill.r, fill.g, fill.b, 0.34)
+	style.set_border_width_all(2 if picked else 1)
+	style.set_corner_radius_all(2)
+	panel.add_theme_stylebox_override("panel", style)
+	if picked:
+		var ink: Color = ScoreVisuals.INK if OperatingModel.level_dark_text(level_id) else ScoreVisuals.INK_LIGHT
+		var check := Glyph.make("check", _px(16), ink)
+		check.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		check.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		panel.add_child(check)
+		panel.tooltip_text = "%s - %s" % [
+			GameState.display_name(system_id), OperatingModel.level_summary(level_id)]
+	return panel
 
 
 func _score_chip(system_id: String) -> Control:
@@ -258,40 +314,57 @@ func _score_chip(system_id: String) -> Control:
 	return chip
 
 
-## The CRT screen covers this panel completely while it is up, so the root
-## steps out of the way; closing the board hands the results page back
-## untouched.
+# --- The way onto the board ----------------------------------------------------------
+
+
+## The one thing left to do with the run. The uplink button raises the SHIPMIND
+## standings over this screen with the run's score already carried in; beside
+## it, the quiet way back to the ship. The score lives on the network board,
+## not here, so there is no form on this page and nothing to correct.
+func _uplink_actions() -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", _px(10))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	var note := ScoreVisuals.caption(
+		"Time isn't scored. Changing your mind is free.", Brand.NEUTRAL)
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(note)
+	row.add_child(_quiet_button("BACK TO THE SHIP", close))
+	box.add_child(row)
+	var uplink := _primary_button("LOG IT ON THE SHIPMIND UPLINK", _open_uplink_board)
+	uplink.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(uplink)
+	return box
+
+
+## The uplink rides on top of this screen in the same layer: the results stay
+## underneath, unreachable while the full-rect board is up, and closing the
+## board hands the results back exactly as the crew left them. No controller
+## wiring is needed - the input block is already held by show_screen().
 func _open_uplink_board() -> void:
-	if _board != null:
+	if _uplink != null:
 		return
-	_board = ShipmindLeaderboard.new()
-	add_child(_board)
-	_board.closed.connect(_close_uplink_board)
-	_board.present_result(Score.total(), int(GameState.elapsed))
+	_uplink = ShipmindLeaderboard.new()
+	add_child(_uplink)
+	_uplink.closed.connect(_close_uplink_board)
+	## The board assembles itself one frame after it enters the tree, so the
+	## run is presented on the next frame too: presenting into a screen that
+	## is not built yet would write the score line into nothing.
+	_uplink.call_deferred("present_result", Score.total(), int(GameState.elapsed))
 	_root.visible = false
 
 
 func _close_uplink_board() -> void:
 	_discard_uplink()
-	root_visible(_open)
+	_root.visible = _open
 
 
 func _discard_uplink() -> void:
-	if _board != null:
-		_board.queue_free()
-		_board = null
-
-
-## Page one's actions. The primary is the one thing left to do with the run:
-## put it on the board. The board is the SHIPMIND uplink - there is no local
-## board any more.
-func _results_actions() -> Control:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_END
-	row.add_theme_constant_override("separation", 14)
-	row.add_child(_quiet_button("BACK TO THE SHIP", close))
-	row.add_child(_primary_button("PUT IT ON THE BOARD", _open_uplink_board))
-	return row
+	if _uplink != null:
+		_uplink.queue_free()
+		_uplink = null
 
 
 func _primary_button(label_text: String, handler: Callable) -> Button:
@@ -300,9 +373,9 @@ func _primary_button(label_text: String, handler: Callable) -> Button:
 	button.text = label_text
 	button.custom_minimum_size = Vector2(_px(230), _px(48))
 	button.add_theme_font_size_override("font_size", _px(14))
-	button.add_theme_color_override("font_color", Color.WHITE)
-	button.add_theme_color_override("font_hover_color", Color.WHITE)
-	button.add_theme_color_override("font_pressed_color", Color.WHITE)
+	button.add_theme_color_override("font_color", ScoreVisuals.INK)
+	button.add_theme_color_override("font_hover_color", ScoreVisuals.INK)
+	button.add_theme_color_override("font_pressed_color", ScoreVisuals.INK)
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = ORANGE
 	fill.set_corner_radius_all(2)
@@ -329,6 +402,13 @@ func _quiet_button(label_text: String, handler: Callable) -> Button:
 	return button
 
 
+func _gap(height: float) -> Control:
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0.0, height)
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return spacer
+
+
 func _field_box(background: Color, border: Color) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = background
@@ -338,13 +418,6 @@ func _field_box(background: Color, border: Color) -> StyleBoxFlat:
 	box.content_margin_left = 10.0
 	box.content_margin_right = 10.0
 	return box
-
-
-func _gap(height: float) -> Control:
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0.0, height)
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return spacer
 
 
 # --- Small pieces -------------------------------------------------------------------
@@ -394,6 +467,19 @@ func _rule() -> ColorRect:
 	return rule
 
 
+func _mean_quality() -> float:
+	var total: float = 0.0
+	var counted: int = 0
+	for system_id in GameState.SYSTEMS:
+		var quality: float = Score.decision_quality(system_id)
+		if quality >= 0.0:
+			total += quality
+			counted += 1
+	if counted == 0:
+		return -1.0
+	return total / float(counted)
+
+
 func _axis_word(value: float) -> String:
 	if value < 0.0:
 		return "nothing to measure yet"
@@ -415,11 +501,10 @@ func _relayout() -> void:
 	if _panel == null:
 		return
 	var view: Vector2 = get_viewport().get_visible_rect().size
-	var inset := Brand.safe_inset(view)
-	_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_panel.size = view - Vector2(inset * 2.0, inset * 2.0)
-	_panel.position = Vector2(inset, inset)
-	_content.add_theme_constant_override("separation", 4 if view.y < 500.0 else 6)
+	var width: float = minf(view.x - _px(36), 1060.0)
+	var height: float = minf(view.y - _px(36), 660.0)
+	_panel.size = Vector2(maxf(width, 280.0), maxf(height, 240.0))
+	_panel.position = (view - _panel.size) * 0.5
 
 
 func _is_portrait() -> bool:
@@ -432,7 +517,4 @@ func _is_portrait() -> bool:
 ## multiplier is Platform's, shared with every other overlay. The floor rule
 ## clamps after the multiplier so nothing ever renders below the reading floor.
 func _px(base: float) -> int:
-	var view: Vector2 = get_viewport().get_visible_rect().size
-	if view.y < 500.0:
-		return max(int(round(base * Platform.ui_scale() * 0.75)), 18)
 	return max(int(round(base * Platform.ui_scale())), Brand.SIZE_SMALL)

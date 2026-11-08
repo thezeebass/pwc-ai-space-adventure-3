@@ -23,8 +23,7 @@ func intro_state() -> ScreenState:
 	state.dim("The board shows the average. The compartments report separately, below.")
 	state.rule()
 	state.text("YOUR MANDATE   %s" % OperatingModel.mandate_line())
-	placement_block(state, "WHO CONTROLS THE AIR?",
-		"In Life Support, SHIPMIND is holding the shipwide oxygen average in range while the aft berths remain below the crew minimum.")
+	placement_block(state, "WHO CONTROLS THE AIR?", "")
 	state.rule()
 	state.option("board", "READ MORE CONTEXT DATA", "Each room, one by one.", "quiet", "info")
 	state.option("ask", "ASK SHIPMIND FOR ITS ASSESSMENT", "Its preferred call.", "primary", "shipmind")
@@ -68,28 +67,30 @@ func ask_state() -> ScreenState:
 	return state
 
 
-## The mobile console's tabs (see Puzzle.info_tabs): SHIPMIND's pitch and its
-## case are one reading, the compartment board the other - views over the
-## states this bay already builds, not a second copy of them.
-func info_tabs() -> Array:
-	var shipmind_lines: Array = [
-		{"text": Shipmind.life_intro(), "tone": "shipmind"},
-		{"text": "", "tone": "rule"},
-	]
-	shipmind_lines.append_array(ask_state().lines)
-	return [
-		{"id": "shipmind", "label": "SHIPMIND", "lines": shipmind_lines},
-		{"id": "logs", "label": "LOGS", "lines": board_state().lines},
-	]
-
-
 func place(level_id: String) -> void:
 	if OperatingModel.level_index(level_id) < 0:
 		push_warning("Life support received an unknown autonomy level '%s'." % level_id)
 		return
 	GameState.record_placement(puzzle_id, level_id)
 	GameState.log_override("LIFE SUPPORT: crew set it to %s" % OperatingModel.level_label(level_id))
-	solve()
+	emit_state(placed_state(level_id))
+
+
+func placed_state(level_id: String) -> ScreenState:
+	var state := ScreenState.new()
+	state.title = "LIFE SUPPORT - DECISION RECORDED"
+	state.status = "ON THE RECORD"
+	state.accent = Brand.ACCENT_TINT
+	state.rule()
+	state.speak("Recorded. I'll run the air your way, and I'll tell you what it costs.")
+	state.rule()
+	for line in Score.reflection_lines(puzzle_id):
+		state.text(line)
+	state.rule()
+	state.dim("Judged against your mandate. Changing your mind is free.")
+	state.option("revise", "Change the decision", "Free. No charge to reconsider.", "primary")
+	state.option("return", "Done - release the console", "The decision stands.", "primary")
+	return state
 
 
 func choose(option_id: String) -> void:
@@ -98,7 +99,7 @@ func choose(option_id: String) -> void:
 			emit_state(board_state())
 		"ask":
 			emit_state(ask_state())
-		"back":
+		"back", "revise":
 			emit_state(intro_state())
 		"return":
 			solve()

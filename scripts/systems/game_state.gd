@@ -88,6 +88,9 @@ static var placements: Dictionary = {}
 ## run's, so reset() leaves it alone: once learned, the controls are never
 ## re-taught. First-time players start with the move stick only.
 static var touch_tutorial_done: bool = false
+## The menu's TEXT SIZE choice (S 24 / M 28 / L 30), persisted with the save
+## and read by every info popup through Brand.info_text_size.
+static var ui_text_size: int = 30
 
 
 static func reset() -> void:
@@ -331,6 +334,7 @@ static func save() -> void:
 		},
 		"placements": placements,
 		"touch_tutorial_done": touch_tutorial_done,
+		"ui_text_size": ui_text_size,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -384,6 +388,10 @@ static func load_data() -> void:
 		placements = saved_placements
 		_restore_placements()
 	touch_tutorial_done = bool(data.get("touch_tutorial_done", false))
+	var saved_text_size: Variant = data.get("ui_text_size", 30)
+	if saved_text_size is int and [24, 28, 30].has(int(saved_text_size)):
+		ui_text_size = int(saved_text_size)
+	Brand.info_text_size = ui_text_size
 
 
 ## Keeps only placements whose level is still a level. A save from the

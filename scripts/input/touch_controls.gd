@@ -99,6 +99,7 @@ func _ready() -> void:
 	# The aim signal lives on the player, which may not be in the tree yet:
 	# the wiring defers one frame so the group lookup always finds it.
 	call_deferred("_wire_aim")
+	TextZoom.register(root)
 
 
 ## First-time crews learn the sticks in two steps: walk, then look. The stage
@@ -163,11 +164,11 @@ func _refresh_hint() -> void:
 			_show_card("LOOK AROUND",
 				"Drag the stick to look around", 0.0)
 		TutorialStage.BOTH:
-			if _console_in_focus and not _console_prompt_open:
-				_show_card("USE IT", "Tap the console to use it", -1.0)
-				_console_prompt_open = true
-			elif not _console_in_focus and _console_prompt_open:
-				_console_prompt_open = false
+			if _console_in_focus:
+				if not _console_prompt_open:
+					_show_card("USE IT", "Tap the console to use it", -1.0)
+					_console_prompt_open = true
+			else:
 				_hide_card()
 
 
@@ -177,6 +178,11 @@ func _refresh_hint() -> void:
 func _show_card(title: String, text: String, progress: float) -> void:
 	tutorial_title.text = title
 	tutorial_text.text = text
+	## The card reads at the menu's TEXT SIZE choice; its title stays a step
+	## above, the same step the terminal's title keeps over its body.
+	tutorial_title.add_theme_font_size_override("font_size", 36)
+	tutorial_text.add_theme_font_size_override("font_size", 30)
+	TextZoom.apply(tutorial_card)
 	if progress < 0.0:
 		tutorial_progress.visible = false
 	else:
@@ -260,6 +266,16 @@ func _advance_tutorial() -> void:
 		GameState.save()
 
 
+## The crew reached for the look stick on their own: the walkthrough's job is
+## done. Ends every stage at once, hides the card and remembers it.
+func _finish_tutorial_now() -> void:
+	_tutorial_stage = TutorialStage.BOTH
+	_apply_tutorial_stage()
+	_hide_card()
+	GameState.touch_tutorial_done = true
+	GameState.save()
+
+
 ## The sticks rest at the bottom corners, and teleport to under a thumb that
 ## claims them in the lower half of the screen.
 func _layout_sticks() -> void:
@@ -286,9 +302,25 @@ func set_active(value: bool) -> void:
 		_release_all()
 
 
+## Something owns the whole screen - the departure cutscene, for example - and
+## the sticks have no business sitting over it. Suppression wins over every
+## other visibility rule, including a touchscreen's always-on default, and
+## lets go of any stick a thumb was still holding.
+var _suppressed: bool = false
+
+
+func set_suppressed(value: bool) -> void:
+	if value == _suppressed:
+		return
+	_suppressed = value
+	_refresh_visibility()
+	if not root.visible:
+		_release_all()
+
+
 func _refresh_visibility() -> void:
-	root.visible = force_visible or _active_override \
-		or DisplayServer.is_touchscreen_available()
+	root.visible = not _suppressed and (force_visible or _active_override \
+		or DisplayServer.is_touchscreen_available())
 
 
 func _mouse_drives() -> bool:
@@ -360,13 +392,14 @@ func _handle_press(index: int, position: Vector2, pressed: bool) -> void:
 		# Every touch is a candidate tap first: it only becomes a stick once the
 		# thumb moves, so a quick touch-and-release is always a use, never a
 		# stick that briefly appeared.
-		# A thumb landing on the right half reveals the look stick at once -
-		# the walkthrough never makes the crew ask twice for the second stick.
-		if _tutorial_stage == TutorialStage.MOVE_ONLY:
+		# A thumb landing on the right half ends the walkthrough at once: the
+		# look stick appears under the thumb's next drag, and no instruction
+		# card stays up while the crew are already reaching for it.
+		if _tutorial_stage != TutorialStage.BOTH:
 			var view: Vector2 = get_viewport().get_visible_rect().size
 			if position.x >= view.x * 0.5 \
 					and position.y > view.y * (1.0 - stick_grab_region):
-				_advance_tutorial()
+				_finish_tutorial_now()
 		_pending_touch = index
 		_pending_start = position
 		return
@@ -379,7 +412,9 @@ func _handle_press(index: int, position: Vector2, pressed: bool) -> void:
 			if _console_prompt_open:
 				_console_prompt_open = false
 				_hide_card()
-			InputRouter.queue_interact()
+			# The tap carries where it landed: the interactor requires the tap
+			# to land on the highlighted console, not anywhere on the screen.
+			InputRouter.queue_interact_at(position)
 		return
 	if index == _move_touch:
 		_move_touch = -1
@@ -423,6 +458,8 @@ func _claim_stick(index: int, position: Vector2) -> void:
 		_move_center = position
 		move_base.position = position - Vector2(move_radius, move_radius)
 		_center_knob(move_knob, move_radius, move_knob_radius)
+		if _tutorial_stage == TutorialStage.MOVE_ONLY:
+			_finish_tutorial_now()
 	elif in_grab and _look_touch == -1 and position.x >= view.x * 0.5:
 		if _tutorial_stage == TutorialStage.MOVE_ONLY:
 			_advance_tutorial()
@@ -430,6 +467,8 @@ func _claim_stick(index: int, position: Vector2) -> void:
 		_look_center = position
 		look_base.position = position - Vector2(look_radius, look_radius)
 		_center_knob(look_knob, look_radius, look_knob_radius)
+		if _tutorial_stage == TutorialStage.LOOK_ONLY:
+			_finish_tutorial_now()
 
 
 ## A released stick glides back to its corner instead of staying where the

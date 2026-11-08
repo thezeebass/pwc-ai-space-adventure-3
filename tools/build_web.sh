@@ -51,6 +51,15 @@ cat > "$OUT/netlify.toml" <<'EOF'
     Cross-Origin-Opener-Policy = "same-origin"
     Cross-Origin-Embedder-Policy = "require-corp"
 EOF
+## The deploy CLI reads netlify.toml from the working directory, not from the
+## deploy folder, so the headers must sit at the repo root too.
+cp "$OUT/netlify.toml" "$REPO/netlify.toml"
+
+## The uplink (the leaderboard API) ships WITH the site: netlify/functions
+## holds its source, and bundling needs the dependencies installed.
+if [ ! -d "$REPO/netlify/functions/node_modules" ]; then
+  (cd "$REPO/netlify/functions" && npm install --silent)
+fi
 
 echo "build_web: done - $OUT ($(stat -f %z "$OUT/index.pck") bytes pck)"
 
@@ -61,6 +70,9 @@ if [[ "${1:-}" == "--deploy" || "${1:-}" == "--deploy-b" ]]; then
     SITE_ID="ba9bc1fe-3b42-4b08-ac8a-ef114cdab0c0"   # pwc-iom-space
   fi
   shift || true
+  ## --functions is load-bearing: a static-only deploy REPLACES the site's
+  ## functions, and the uplink goes dark - which is how it was lost on -l.
   netlify deploy --prod --site "$SITE_ID" --dir "$OUT" \
+    --functions netlify/functions \
     --message "web_pwa $VERSION ${1:-}" 2>&1 | grep -E "Deployed|Unique|error" || true
 fi
