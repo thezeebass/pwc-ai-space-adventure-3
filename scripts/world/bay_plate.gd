@@ -42,6 +42,16 @@ const SHORT_NAMES := {
 }
 
 @export var system_id: String = ""
+## An authored plate for a room that is no bay - the helm, say. When both are
+## set they replace the bay lookup: the same look, the room's own number and
+## name.
+@export var plate_number: String = ""
+@export var plate_name: String = ""
+## An authored facing in degrees. The decks' plates face the corridor off the
+## doorway's own X; the ship's own doorways run fore-aft, where that rule does
+## not apply, so a plate there states its facing outright. Anything above 360
+## means "derive it the decks' way".
+@export var plate_yaw_deg: float = 999.0
 
 
 func _ready() -> void:
@@ -49,20 +59,28 @@ func _ready() -> void:
 	## authoring tools pack what _ready builds) must not load with two copies.
 	for child in get_children():
 		child.queue_free()
-	if not GameState.SYSTEMS.has(system_id):
-		push_warning("Bay plate '%s' names no known system ('%s'), so it stays blank." % [
-			name, system_id])
-		return
 	var parent_body := get_parent() as Node3D
 	if parent_body == null:
 		push_warning("Bay plate '%s' has no doorway to read its wall side from." % name)
 		return
-	## The plate faces the corridor: a doorway on the +X spine wall opens
-	## toward -X, and one on the -X wall toward +X.
-	var yaw: float = PI * 0.5 if parent_body.global_position.x < 0.0 else -PI * 0.5
-	_add_label("Number", str(GameState.system_index(system_id)), NUMBER_SIZE, GOLD,
-		NUMBER_LIFT, yaw)
-	_add_label("Name", _short_name(), NAME_SIZE, SAND, -NAME_DROP, yaw)
+	var yaw: float
+	if plate_yaw_deg <= 360.0:
+		yaw = deg_to_rad(plate_yaw_deg)
+	else:
+		## The plate faces the corridor: a doorway on the +X spine wall opens
+		## toward -X, and one on the -X wall toward +X.
+		yaw = PI * 0.5 if parent_body.global_position.x < 0.0 else -PI * 0.5
+	if GameState.SYSTEMS.has(system_id):
+		_add_label("Number", str(GameState.system_index(system_id)), NUMBER_SIZE, GOLD,
+			NUMBER_LIFT, yaw)
+		_add_label("Name", _short_name(), NAME_SIZE, SAND, -NAME_DROP, yaw)
+		return
+	if plate_number != "" and plate_name != "":
+		_add_label("Number", plate_number, NUMBER_SIZE, GOLD, NUMBER_LIFT, yaw)
+		_add_label("Name", plate_name, NAME_SIZE, SAND, -NAME_DROP, yaw)
+		return
+	push_warning("Bay plate '%s' names no known system ('%s') and no authored text, so it stays blank." % [
+		name, system_id])
 
 
 func _short_name() -> String:

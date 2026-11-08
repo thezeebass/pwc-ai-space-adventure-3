@@ -15,6 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://qsk54vct8o10" path="res://scenes/world/deck1.tscn" id="14_deck1"]
 [ext_resource type="PackedScene" uid="uid://ca1rxqi8pc75e" path="res://scenes/world/stairwell.tscn" id="15_stairwell"]
 [ext_resource type="PackedScene" uid="uid://bls6x70yn4nl1" path="res://scenes/world/deck2.tscn" id="16_deck2"]
+[ext_resource type="Script" uid="uid://bu1cf3571syso" path="res://scripts/world/bay_plate.gd" id="20_bay_plate"]
 
 [sub_resource type="Shader" id="Shader_deep_space"]
 code = "shader_type sky;
@@ -169,6 +170,13 @@ mesh = SubResource("Mesh_approach")
 
 [node name="Shape" type="CollisionShape3D" parent="BridgeApproach/ApproachWall_Starboard" unique_id=219583844]
 shape = SubResource("Shape_approach")
+
+[node name="HelmPlate" type="Node3D" parent="BridgeApproach/ApproachWall_Starboard"]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, -0.344, -0.23, -0.163)
+script = ExtResource("20_bay_plate")
+plate_number = "6"
+plate_name = "HELM"
+plate_yaw_deg = 180.0
 
 [node name="ApproachWall_Port" type="StaticBody3D" parent="BridgeApproach" unique_id=237905017]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.29375, 2.03, 17.5)
