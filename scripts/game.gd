@@ -18,6 +18,16 @@ const DESKTOP_RIG_PATH := "res://scenes/player/player.tscn"
 
 var _player: Node3D = null
 var _pending_pa: String = ""
+## The tutorial direction that rides with the PA: after the top three bays
+## land, downstairs; after all five, back up to the cockpit door.
+var _pending_nudge: String = ""
+var _nudged_downstairs: bool = false
+var _nudged_cockpit: bool = false
+
+## The deck layout as the crew walk it: three decision rooms up here, two
+## downstairs, and the cockpit door above them both.
+const UPPER_BAYS: Array[String] = ["navigation", "life_support", "comms"]
+const LOWER_BAYS: Array[String] = ["cargo", "engineering"]
 ## The station's own environment, kept so a test swing into VR and back can
 ## restore the desktop look instead of leaving it with XR's post-processing.
 var _desktop_environment: Environment = null
@@ -540,8 +550,10 @@ func _on_puzzle_solved(system_id: String) -> void:
 		terminal.close()
 	principle_card.show_card(system_id)
 	# Held until the card is dismissed, so SHIPMIND's response to the placement
-	# is not buried behind the reflection card.
+	# is not buried behind the reflection card. A threshold direction rides
+	# along with it: three bays done points downstairs, five points up.
 	_pending_pa = Shipmind.system_restored(system_id)
+	_pending_nudge = _bay_threshold_nudge()
 
 
 func _on_door_denied(system_id: String) -> void:
@@ -622,7 +634,40 @@ func _on_overlay_closed() -> void:
 	if _pending_pa != "":
 		var line: String = _pending_pa
 		_pending_pa = ""
-		hud.say_shipmind(line, 8.0)
+		var nudge: String = _pending_nudge
+		_pending_nudge = ""
+		hud.say_shipmind(line + ("  " + nudge if nudge != "" else ""),
+				11.0 if nudge != "" else 8.0)
+
+
+## The tutorial direction for this moment of the run, or "" when there is
+## nothing new to point at. Each threshold is given once per run: the third
+## upper bay sends the crew downstairs, the fifth sends them back up to the
+## cockpit door.
+func _bay_threshold_nudge() -> String:
+	var upper_done := 0
+	for id in UPPER_BAYS:
+		if GameState.is_restored(id):
+			upper_done += 1
+	if upper_done < UPPER_BAYS.size():
+		return ""
+	var all_done := true
+	for id in LOWER_BAYS:
+		if not GameState.is_restored(id):
+			all_done = false
+	if all_done:
+		if _nudged_cockpit:
+			return ""
+		_nudged_cockpit = true
+		return "Every room is under crew control. Head back upstairs - the cockpit door is open."
+	if _nudged_downstairs:
+		return ""
+	_nudged_downstairs = true
+	var remaining: Array[String] = []
+	for id in LOWER_BAYS:
+		if not GameState.is_restored(id):
+			remaining.append(GameState.display_name(id).to_lower())
+	return "Head downstairs for the %s." % " and the ".join(remaining)
 
 
 func _interact_hint() -> String:
