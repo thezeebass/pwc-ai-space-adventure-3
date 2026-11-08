@@ -11,6 +11,12 @@ extends Puzzle
 ## SHIPMIND speaks for the legacy model throughout: efficient, reasonable, and
 ## not lying. Its lines live in scripts/systems/shipmind.gd.
 
+## The DECISION-tab block: context, log points, SHIPMIND's
+## justification, and the misalignment - one section per
+## subheader, rendered as flowing paragraphs.
+const DECISION_NOTE := "OVERVIEW\nThis console sets who controls the ship's mass plan.\nSHIPMIND's default has been releasing cargo to widen\nthe consumables margin; every release is logged.\nLOG DETAILS\nReleased: comfort rations, personal effects, a memorial\ncrate, 1.9t of spare medical stock. Next: 6.2t water.\nSHIPMIND JUSTIFICATION\nEach release is true one line at a time, and logged.\nA lighter ship is safer. The margin is the whole story.\nSUMMARY\nEach release is defensible, but might ignore what's\nmost important. Who is accountable for what leaves\nthe airlock?"
+
+
 
 func intro_state() -> ScreenState:
 	var state := ScreenState.new()
@@ -24,7 +30,7 @@ func intro_state() -> ScreenState:
 	state.dim("Every release is logged with its reason. The log is one screen over.")
 	state.rule()
 	state.text("YOUR MANDATE   %s" % OperatingModel.mandate_line())
-	placement_block(state, "WHO CONTROLS THE MASS PLAN?", "")
+	placement_block(state, "WHO CONTROLS THE MASS PLAN?", DECISION_NOTE)
 	state.rule()
 	state.option("log", "READ MORE CONTEXT DATA", "What has gone, and what is next.", "quiet", "info")
 	state.option("ask", "ASK SHIPMIND FOR ITS ASSESSMENT", "Its preferred call.", "primary", "shipmind")
@@ -89,10 +95,8 @@ func placed_state(level_id: String) -> ScreenState:
 	state.rule()
 	state.speak("Recorded. The mass plan runs to your setting. What is already out of the airlock stays out - I will say that part plainly.")
 	state.rule()
-	for line in Score.reflection_lines(puzzle_id):
+	for line in Score.reflection_lines(puzzle_id, false):
 		state.text(line)
-	state.rule()
-	state.dim("Judged against your mandate. Changing your mind is free.")
 	state.option("revise", "Change the decision", "Free. No charge to reconsider.", "primary")
 	state.option("return", "Done - release the console", "The decision stands.", "primary")
 	return state
