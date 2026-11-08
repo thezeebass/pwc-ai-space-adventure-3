@@ -1,13 +1,15 @@
 class_name PauseMenu
 extends CanvasLayer
 
-## The in-run menu: the clear way back out of the ship.
+## The in-run menu: the ship's settings and the way back out of the run.
 ##
-## Three jobs, in the order a player needs them: RESUME (the common case, so it
-## is the primary button), the music switch (so muting the soundtrack does not
-## require leaving the run), the input mode chips (the test switch, usable
-## mid-run), and MAIN MENU - the explicit door out of the run, which wipes the
-## record and reloads the ship: a clean start from the top.
+## The jobs, in the order a player needs them: the SHIPMIND BOARD (live
+## standings, readable mid-run), the music switch (so muting the soundtrack
+## does not require leaving the run), the input mode chips (the test switch,
+## usable mid-run), and RESET PROGRESS - the explicit clean start, which wipes
+## the record and reloads the ship. There is no RESUME button: tapping outside
+## the card closes the menu, and so does Escape - returning to the run is the
+## gesture you are already making, not a button you must find.
 ##
 ## Escape opens and closes this menu. While it is up the run clock is stopped -
 ## GameState.tick only advances while run_running, and the menu owns that flag
@@ -29,7 +31,7 @@ const MUTED := Color(0.72, 0.66, 0.62)
 
 var _root: Control = null
 var _card: PanelContainer = null
-var _resume_button: Button = null
+var _board_button: Button = null
 var _text_size_buttons: Dictionary = {}
 var _reset_button: Button = null
 var _reset_confirm: HBoxContainer = null
@@ -58,14 +60,14 @@ func open() -> void:
 	visible = true
 	InputRouter.set_ui_blocking(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	# The clock stops while the crew are in the menu, and restarts on RESUME.
+	# The clock stops while the crew are in the menu, and restarts on close.
 	GameState.run_running = false
 	_disarm_reset()
 	_refresh_text_size_chips()
 	# The menu is keyboard- and gamepad-reachable from here: focus lands on
-	# RESUME, and Tab walks on to the SHIPMIND BOARD.
-	if _resume_button != null:
-		_resume_button.grab_focus()
+	# the SHIPMIND BOARD, and Tab walks on to the audio and text controls.
+	if _board_button != null:
+		_board_button.grab_focus()
 
 
 func close() -> void:
@@ -210,9 +212,6 @@ func _build() -> void:
 	column.add_child(title)
 
 	column.add_child(_spacer(8))
-	_resume_button = _primary_button("RESUME", close)
-	column.add_child(_resume_button)
-	column.add_child(_spacer(4))
 
 	# The live SHIPMIND standings, readable mid-run. The board replaces the
 	# card while it is up and hands the card back when it closes; the clock is
@@ -230,6 +229,7 @@ func _build() -> void:
 	board_button.add_theme_stylebox_override("pressed", board_style)
 	board_button.add_theme_stylebox_override("focus", board_style)
 	board_button.pressed.connect(_open_board)
+	_board_button = board_button
 	column.add_child(board_button)
 
 	# The mixer, not just a music switch: music, ambience and sfx each carry
@@ -284,22 +284,6 @@ func _build() -> void:
 	column.add_child(size_row)
 
 	column.add_child(_spacer(10))
-	var menu_button := Button.new()
-	menu_button.text = "MAIN MENU"
-	menu_button.focus_mode = Control.FOCUS_NONE
-	menu_button.add_theme_font_size_override("font_size", 30)
-	menu_button.add_theme_color_override("font_color", PAPAYA)
-	menu_button.add_theme_color_override("font_hover_color", GOLD)
-	var outlined := _ghost_style()
-	outlined.border_color = TANGERINE
-	menu_button.add_theme_stylebox_override("normal", outlined)
-	menu_button.add_theme_stylebox_override("hover", outlined)
-	menu_button.add_theme_stylebox_override("pressed", outlined)
-	menu_button.add_theme_stylebox_override("focus", outlined)
-	menu_button.pressed.connect(main_menu)
-	column.add_child(menu_button)
-
-	column.add_child(_spacer(4))
 	_reset_button = Button.new()
 	_reset_button.text = "RESET PROGRESS"
 	_reset_button.focus_mode = Control.FOCUS_NONE
@@ -411,28 +395,6 @@ func _disarm_reset() -> void:
 		_reset_button.visible = true
 	if _reset_note != null:
 		_reset_note.text = "Clears every decision and the mandate, then starts over."
-
-
-func _primary_button(label_text: String, handler: Callable) -> Button:
-	var button := Button.new()
-	button.text = label_text
-	button.custom_minimum_size = Vector2(0.0, 50.0)
-	button.focus_mode = Control.FOCUS_ALL
-	button.add_theme_font_size_override("font_size", 30)
-	button.add_theme_color_override("font_color", Color(0.10, 0.06, 0.04))
-	button.add_theme_color_override("font_hover_color", Color(0.10, 0.06, 0.04))
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = GOLD
-	fill.border_color = TANGERINE
-	fill.set_border_width_all(2)
-	fill.set_corner_radius_all(3)
-	button.add_theme_stylebox_override("normal", fill)
-	var hover: StyleBoxFlat = fill.duplicate()
-	hover.bg_color = Color(1.0, 0.82, 0.36)
-	button.add_theme_stylebox_override("hover", hover)
-	button.add_theme_stylebox_override("focus", hover)
-	button.pressed.connect(handler)
-	return button
 
 
 func _ghost_style() -> StyleBoxFlat:
