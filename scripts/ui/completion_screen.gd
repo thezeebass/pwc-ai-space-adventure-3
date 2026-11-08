@@ -152,6 +152,9 @@ func _rebuild() -> void:
 ## THE ONE PAGE: WHAT THE RUN ADDED UP TO. Nothing to fill in, nothing to
 ## scroll to - the run as a picture, the uplink, and the way back to the ship.
 func _build_results_page() -> void:
+	## The uplink button leads: posting the score is the one thing this screen
+	## exists for, so it sits at the very top - no scrolling to find it.
+	_content.add_child(_uplink_actions())
 	_content.add_child(_kicker("THE RUN IS FLOWN  —  ADAMANT VERITY UNDER WAY"))
 	_content.add_child(_title("MISSION COMPLETE"))
 	_content.add_child(_summary_row())
@@ -160,8 +163,6 @@ func _build_results_page() -> void:
 	_content.add_child(_rule())
 	_content.add_child(_section("YOUR FIVE DECISIONS"))
 	_content.add_child(_matrix())
-	_content.add_child(_gap(_px(8)))
-	_content.add_child(_uplink_actions())
 
 
 # --- The run, as a picture -----------------------------------------------------------
@@ -324,18 +325,11 @@ func _score_chip(system_id: String) -> Control:
 func _uplink_actions() -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", _px(10))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	var note := ScoreVisuals.caption(
-		"Time isn't scored. Changing your mind is free.", Brand.NEUTRAL)
-	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(note)
-	row.add_child(_quiet_button("BACK TO THE SHIP", close))
-	box.add_child(row)
-	var uplink := _primary_button("LOG IT ON THE SHIPMIND UPLINK", _open_uplink_board)
+	var uplink := _primary_button("POST TO LEADERBOARD", _open_uplink_board)
 	uplink.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(uplink)
+	box.add_child(ScoreVisuals.caption(
+		"Time isn't scored. Changing your mind is free.", Brand.NEUTRAL))
 	return box
 
 
@@ -384,20 +378,6 @@ func _primary_button(label_text: String, handler: Callable) -> Button:
 	hover.bg_color = Brand.ACCENT_TINT
 	button.add_theme_stylebox_override("hover", hover)
 	button.add_theme_stylebox_override("pressed", hover)
-	button.pressed.connect(handler)
-	return button
-
-
-func _quiet_button(label_text: String, handler: Callable) -> Button:
-	var button := Button.new()
-	button.name = label_text.capitalize().replace(" ", "")
-	button.text = label_text
-	button.custom_minimum_size = Vector2(0.0, _px(44))
-	button.add_theme_font_size_override("font_size", _px(12))
-	button.add_theme_color_override("font_color", Brand.INK)
-	button.add_theme_color_override("font_hover_color", Brand.ACCENT_TINT)
-	button.add_theme_stylebox_override("normal", _field_box(Color(0.0, 0.0, 0.0, 0.0), Brand.NEUTRAL))
-	button.add_theme_stylebox_override("hover", _field_box(Color(0.0, 0.0, 0.0, 0.0), Brand.ACCENT_TINT))
 	button.pressed.connect(handler)
 	return button
 

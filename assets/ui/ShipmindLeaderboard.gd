@@ -140,7 +140,11 @@ func present_result(score: int, seconds: int, mode := "default") -> void:
 	_status_line("RUN COMPLETE — SCORE %s" % _fmt(score))
 	_entry_row.visible = true
 	_name_edit.text = ""
-	_name_edit.grab_focus()
+	## Desktops take the caret outright. A web keyboard answers only a focus
+	## that a gesture started: a programmatic focus raises nothing, so on the
+	## web the crew tap the field themselves and that tap does the focusing.
+	if not OS.has_feature("web"):
+		_name_edit.grab_focus()
 	_client().fetch_leaderboard(mode, MAX_ROWS)
 	_client().fetch_rank_preview(score, mode)
 
@@ -272,6 +276,9 @@ func _build_ui() -> void:
 	_name_edit.placeholder_text = "—"
 	_name_edit.caret_blink = true
 	_name_edit.custom_minimum_size = Vector2(0, int(40 * _ui_scale))
+	## The tap that focuses the field on the web - the keyboard answers a
+	## gesture, not a flag (see _on_name_input).
+	_name_edit.gui_input.connect(_on_name_input)
 	if _font:
 		_name_edit.add_theme_font_override("font", _font)
 	_name_edit.add_theme_font_size_override("font_size", maxi(int(24 * _ui_scale), FONT_FLOOR))
@@ -466,6 +473,17 @@ func _connect_client() -> void:
 	c.rank_preview_received.connect(_on_rank_preview)
 	c.submit_completed.connect(_on_submitted)
 	c.request_failed.connect(_on_failed)
+
+
+## The tap that focuses the callsign field on the web. A field that is already
+## focused never re-runs the focus hook the keyboard answers, so the tap drops
+## and re-grabs focus - the gesture the keyboard is waiting for.
+func _on_name_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed \
+			and event.button_index == MOUSE_BUTTON_LEFT \
+			and OS.has_feature("web"):
+		_name_edit.release_focus()
+		_name_edit.grab_focus()
 
 
 func _on_log_entry() -> void:
