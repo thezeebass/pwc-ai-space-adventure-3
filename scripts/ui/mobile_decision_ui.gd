@@ -135,7 +135,7 @@ func render(state: ScreenState, puzzle: Puzzle) -> void:
 		_render_readback(state)
 
 
-# --- The shell --------------------------------------------------------------------
+# --- The shell -------------------------------------------------------------------
 
 
 func _build() -> void:
@@ -312,7 +312,7 @@ func _clear(node: Node) -> void:
 		child.queue_free()
 
 
-# --- Decision mode --------------------------------------------------------------------
+# --- Decision mode -----------------------------------------------------------------
 
 
 func _render_decision(state: ScreenState) -> void:
@@ -350,7 +350,7 @@ func _build_tabs(state: ScreenState) -> Array:
 	return tabs
 
 
-# --- Tabs -------------------------------------------------------------------------
+# --- Tabs ------------------------------------------------------------------------
 
 
 func _make_tab_button(tab: Dictionary) -> Button:
@@ -399,7 +399,9 @@ func _style_tab(button: Button, active: bool) -> void:
 
 
 func _tab_box(background: Color, border: Color, border_bottom: int) -> StyleBoxFlat:
-	var box := _box(background, border)
+	var box := StyleBoxFlat.new()
+	box.bg_color = background
+	box.border_color = border
 	box.set_border_width_all(2)
 	box.border_width_bottom = border_bottom
 	if border_bottom > 0:
