@@ -18,7 +18,9 @@ extends Control
 ##     out of the decision column's left border, right to left, over the info
 ##     window. It carries the reviewed paragraph for that option in THIS
 ##     system - what pressing it means here, not a generic hint. Flowing text,
-##     no scroll: the panel sizes to the paragraph.
+##     no scroll: the panel sizes to the paragraph. Clicking a chip pins its
+##     panel open; clicking it again closes it, and clicking another chip
+##     moves the pin.
 ##   - The cockpit backdrop sits behind everything, blurred and scrimmed in the
 ##     baked asset: legibility comes from the bake, not from an in-engine
 ##     filter.
@@ -74,6 +76,11 @@ var _popup_tween: Tween = null
 var _hold_timer: Timer = null
 var _hold_level: String = ""
 var _hold_chip: Button = null
+## The chip whose explanation is pinned open by a click. Empty when nothing is
+## pinned: hover is then a transient preview, as before. A pinned pop-out
+## stays until its own chip is clicked again, another chip is clicked, or the
+## screen is rebuilt.
+var _popup_pinned: String = ""
 
 
 func _ready() -> void:
@@ -128,7 +135,7 @@ func render(state: ScreenState, puzzle: Puzzle) -> void:
 		_render_readback(state)
 
 
-# --- The shell -------------------------------------------------------------------
+# --- The shell --------------------------------------------------------------------
 
 
 func _build() -> void:
@@ -305,7 +312,7 @@ func _clear(node: Node) -> void:
 		child.queue_free()
 
 
-# --- Decision mode -----------------------------------------------------------------
+# --- Decision mode --------------------------------------------------------------------
 
 
 func _render_decision(state: ScreenState) -> void:
@@ -343,7 +350,7 @@ func _build_tabs(state: ScreenState) -> Array:
 	return tabs
 
 
-# --- Tabs ------------------------------------------------------------------------
+# --- Tabs -------------------------------------------------------------------------
 
 
 func _make_tab_button(tab: Dictionary) -> Button:
@@ -392,9 +399,7 @@ func _style_tab(button: Button, active: bool) -> void:
 
 
 func _tab_box(background: Color, border: Color, border_bottom: int) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = background
-	box.border_color = border
+	var box := _box(background, border)
 	box.set_border_width_all(2)
 	box.border_width_bottom = border_bottom
 	if border_bottom > 0:
@@ -597,10 +602,10 @@ func _make_chip(level_id: String, label: String) -> Button:
 	chip.add_child(glyph)
 	chip.toggled.connect(func(on: bool) -> void: glyph.tint = ink if on else quiet_ink)
 	## The option-context pop-out: hover on desktop, press-and-hold on touch.
-	chip.mouse_entered.connect(_show_option_popup.bind(level_id, chip))
-	chip.mouse_exited.connect(_hide_option_popup)
+	chip.mouse_entered.connect(_on_chip_hovered.bind(level_id, chip))
+	chip.mouse_exited.connect(_on_chip_unhovered)
 	chip.button_down.connect(_on_chip_held.bind(level_id, chip))
-	chip.button_up.connect(_on_chip_released)
+	chip.button_up.connect(_on_chip_released.bind(level_id))
 	return chip
 
 
@@ -614,7 +619,8 @@ func _chip_box(background: Color, border: Color) -> StyleBoxFlat:
 
 func _on_chip_pressed(level_id: String) -> void:
 	_level_choice = level_id
-	_hide_option_popup()
+	## Picking a chip is not a dismissal: a pinned explanation stays up so the
+	## player can read it while the choice registers.
 	_refresh_slot()
 	_refresh_commit()
 
@@ -809,6 +815,7 @@ func _popup_target_width() -> float:
 func _hide_option_popup() -> void:
 	_popup_seq += 1
 	_popup_level = ""
+	_popup_pinned = ""
 	if _popup_tween != null and _popup_tween.is_valid():
 		_popup_tween.kill()
 	if _hold_timer != null:
@@ -829,11 +836,37 @@ func _on_chip_held(level_id: String, chip: Button) -> void:
 		_hold_timer.start()
 
 
-func _on_chip_released() -> void:
+## Hover (desktop): a transient preview of the option's paragraph, only while
+## nothing is pinned. Once a click has pinned a pop-out, hover stops
+## interrupting it - the pin, not the cursor, owns the panel.
+func _on_chip_hovered(level_id: String, chip: Button) -> void:
+	if _popup_pinned != "":
+		return
+	_show_option_popup(level_id, chip)
+
+
+## Leaving a chip hides the preview, but never a pinned panel.
+func _on_chip_unhovered() -> void:
+	if _popup_pinned != "":
+		return
+	_hide_option_popup()
+
+
+## A click is a toggle, not a momentary press: releasing the chip pins its
+## pop-out open. Releasing the pinned chip again unpins it; releasing a
+## different chip moves the pin. Gated chips pin nothing - their explanation
+## is as gated as the pick.
+func _on_chip_released(level_id: String) -> void:
 	if _hold_timer != null:
 		_hold_timer.stop()
-	if _popup.visible:
+	var chip: Button = _chips.get(level_id, null)
+	if chip == null or chip.disabled:
+		return
+	if _popup_pinned == level_id:
 		_hide_option_popup()
+		return
+	_popup_pinned = level_id
+	_show_option_popup(level_id, chip)
 
 
 func _on_hold_timeout() -> void:
