@@ -37,6 +37,37 @@ function cleanMode(raw) {
   return /^[a-z0-9_-]{1,32}$/.test(m) ? m : "default";
 }
 
+// The testing-round reset: POST /api/reset with {"key": "..."} clears every
+// board. The key must match the site's PWC_RESET_KEY env var - unset, the
+// endpoint refuses, so production ships inert.
+async function resetBoards(store) {
+  return store.list().then(async (result) => {
+    let cleared = 0;
+    const keys = [];
+    for (const entry of result.blobs) {
+      if (!entry.key.startsWith("board:")) continue;
+      await store.delete(entry.key);
+      keys.push(entry.key);
+      cleared += 1;
+    }
+    return { cleared, keys };
+  });
+}
+
+async function postReset(store, req) {
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return bad("body must be JSON");
+  }
+  const expected = (Netlify.env.get("PWC_RESET_KEY") || "").trim();
+  if (expected === "") return bad("no reset key is configured for this site", 403);
+  if (String(body?.key ?? "") !== expected) return bad("reset key does not match", 403);
+  const result = await resetBoards(store);
+  return json(200, { cleared: true, boards_removed: result.cleared, keys: result.keys });
+}
+
 function cleanName(raw) {
   const name = String(raw ?? "")
     .replace(/\s+/g, " ")
@@ -217,6 +248,8 @@ export default async (req) => {
       return await getRank(store, url);
     if (url.pathname === "/api/submit" && req.method === "POST")
       return await postSubmit(store, req);
+    if (url.pathname === "/api/reset" && req.method === "POST")
+      return await postReset(store, req);
     return bad("not found", 404);
   } catch (err) {
     return bad(`server error: ${err?.message ?? "unknown"}`, 500);
