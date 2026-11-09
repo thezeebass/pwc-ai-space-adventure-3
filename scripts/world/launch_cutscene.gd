@@ -135,7 +135,6 @@ var _plumes: Array[Node3D] = []
 var _nozzle_lights: Array[OmniLight3D] = []
 var _title_label: Label = null
 var _caption_label: Label = null
-var _caption_zone: String = ""
 var _captions: Array[Dictionary] = []
 var _elapsed: float = 0.0
 var _running: bool = false
@@ -160,7 +159,6 @@ func play() -> void:
 	## at the end of the previous run and the sequence would close on its first
 	## frame.
 	_elapsed = 0.0
-	_caption_zone = ""
 	set_overlay_visible(true)
 	set_process(true)
 	## Captured here rather than in _ready(): this is the last moment the crew's
@@ -611,40 +609,36 @@ func _build_overlay() -> void:
 	_caption_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(_caption_label)
-	_place_caption("bottom")
+	_place_caption()
 
 	_captions = [
-		{"at": 0.0, "title": "", "zone": "centre",
+		## No caption over the interior bridge shot: the first line starts as the
+		## pull-out begins, so every subtitle plays over the exterior of the ship.
+		{"at": SHOT_INTERIOR_END + 0.1, "title": "",
 			"text": "Now equipped with a mandate that puts responsibility in the right hands,"},
-		{"at": 5.0, "title": "", "zone": "bottom",
+		{"at": 5.0, "title": "",
 			"text": "The Adamant Verity's engines roar to life"},
-		{"at": 8.2, "title": "", "zone": "bottom",
+		{"at": 8.2, "title": "",
 			"text": "The ship continues on its journey home, with man and machine working together."},
-		{"at": 12.0, "title": "", "zone": "bottom",
+		{"at": 12.0, "title": "",
 			"text": "The Intelligent Operating Model is live."},
 	]
 
 
-## Subtitle placement per shot. The bridge shot holds its caption dead centre,
-## over the black of space through the glass; everything from ignition on rides
-## the bottom band - the block sits inside the bottom 15% of the screen with
-## the bottom 5% kept clear, so the ship and the plumes are never covered.
-func _place_caption(zone: String) -> void:
-	if zone == "centre":
-		_caption_label.set_anchors_preset(Control.PRESET_CENTER)
-		_caption_label.position = Vector2(-390.0, -110.0)
-		_caption_label.size = Vector2(780.0, 220.0)
-		_caption_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	else:
-		_caption_label.set_anchor(SIDE_LEFT, 0.5)
-		_caption_label.set_anchor(SIDE_RIGHT, 0.5)
-		_caption_label.anchor_top = 0.80
-		_caption_label.anchor_bottom = 0.95
-		_caption_label.offset_left = -390.0
-		_caption_label.offset_right = 390.0
-		_caption_label.offset_top = 0.0
-		_caption_label.offset_bottom = 0.0
-		_caption_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+## Subtitle placement for the whole sequence: bottom centre, always. The block
+## anchors to the 0.80-0.95 band, so the bottom 5% of the screen stays clear
+## and the ship and plumes are never covered. There is no centre zone; the
+## caption set above also keeps every subtitle on exterior shots only.
+func _place_caption() -> void:
+	_caption_label.set_anchor(SIDE_LEFT, 0.5)
+	_caption_label.set_anchor(SIDE_RIGHT, 0.5)
+	_caption_label.anchor_top = 0.80
+	_caption_label.anchor_bottom = 0.95
+	_caption_label.offset_left = -390.0
+	_caption_label.offset_right = 390.0
+	_caption_label.offset_top = 0.0
+	_caption_label.offset_bottom = 0.0
+	_caption_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 
 
 ## The 3D nodes stay live while the sequence is closed and only the text
@@ -660,10 +654,6 @@ func set_overlay_visible(value: bool) -> void:
 func _advance_captions() -> void:
 	for entry in _captions:
 		if _elapsed >= float(entry["at"]):
-			var zone: String = String(entry.get("zone", "bottom"))
-			if zone != _caption_zone:
-				_caption_zone = zone
-				_place_caption(zone)
 			var title: String = String(entry["title"])
 			var body: String = String(entry["text"])
 			if _title_label != null and _title_label.text != title:
