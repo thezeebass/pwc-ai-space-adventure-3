@@ -173,6 +173,54 @@ const DECISIONS := {
 	},
 }
 
+## The personalised paragraph for one option in one system: what pressing this
+## level means HERE, in the bay's own stakes and its specific failure, written
+## so a new player can tell AUTO from REVIEW from SIGN-OFF from HUMAN before
+## they commit. Keyed by system id, then level id. An unknown pair returns ""
+## and the renderers fall back to the level's generic hint. Reviewed copy:
+## the paragraphs exist to make the decision real, and none of them steers to
+## a "right" answer - the game scores consistency, not correctness.
+const OPTION_CONTEXT := {
+	"navigation": {
+		"automated": "SHIPMIND plots every course the moment it is needed, inside limits it cannot cross. It is fast and it is consistent - and it is flying this one on a hazard index measured before the K-7 field collapsed. AUTO means nobody re-reads the number before the ship commits. If the number is stale, the ship finds out at the rocks, not before.",
+		"review": "SHIPMIND flies the course it chooses, and a crew member reads each one after the fact - able to send the next decision back, unable to un-hit what this one met. Here that order matters: a review can correct the route for tomorrow but not the debris for today. Speed while it is cheap, a person when the bill arrives.",
+		"signoff": "SHIPMIND drafts the course; nothing is flown until a named owner on the bridge presses GO. That pause is the whole point here: the recomputed index says Route A is three times over the ceiling, and a signature is the moment somebody has to say they read it. Slower to launch. Nothing launches unread.",
+		"human_only": "The crew plot the course themselves; SHIPMIND carries out orders and offers no route of its own. That is the cleanest answer to the question of who is accountable if the ship hits something - but it also shelves the fastest navigator aboard. Choose HUMAN when the person deciding should be the person who bleeds. Be sure the bridge has the hours this route deserves.",
+	},
+	"comms": {
+		"automated": "SHIPMIND sorts the 47-item queue on its own and publishes its three-item digest. Its filing is logical, consistent, and already demonstrated: an oxygen advisory and a two-day recall are sitting in ADMINISTRATIVE. Because anything buried can be dug back up, AUTO here is the cheapest option to forgive - the cost is only everyone who never knew to look.",
+		"review": "SHIPMIND sorts and files; a crew member reviews the queue afterwards and can pull things back into the light. This is the bay the pattern was built for: nothing sent is gone forever, so catching a buried message tomorrow actually works. The digest still shapes what the crew sees today - review treats the symptom after the day has been lived on it.",
+		"signoff": "Nothing is filed - nothing disappears into ADMINISTRATIVE - until a named owner approves the sort. Forty-seven items need a reader, and this is where you buy one: every suppression becomes a decision somebody made on the record. The slowest way to run a comms queue. The only way the queue never decides for you.",
+		"human_only": "The crew read their own mail. SHIPMIND keeps the pipes and offers nothing. Forty-seven items a day, every day, in person - sustainable on a quiet run, corrosive on a long one, and this queue has already shown what quiet does to attention. Choose HUMAN if sorting the ship's voice is the crew's job regardless of the cost; just price the boredom in.",
+	},
+	"cargo": {
+		"automated": "SHIPMIND keeps widening the consumables margin on its own, one logged release at a time - comfort rations, personal effects, a memorial crate, spare medical stock. Every line is true one line at a time. AUTO means no one stands at the airlock, because nothing in the process does. What leaves the airlock stays in space. Gone is gone.",
+		"review": "SHIPMIND keeps making the calls, and a crew member reviews the manifest after each release. In this bay that sentence should worry you: there is no after that gets a crate back. Review is the right shape for things that can be undone, and the mass plan is the one ledger on this ship where undo does not exist.",
+		"signoff": "SHIPMIND proposes each release; a named owner approves it before the airlock cycles. This is the cheapest possible place to put a human: one signature per line, and the signature is the only thing standing between a defensible margin and a memorial crate in the dark. It slows nothing that matters - releases are rare. They are also permanent.",
+		"human_only": "The crew write the mass plan themselves; SHIPMIND executes releases and nothing more. Given what has already gone out the airlock on tidy logic alone, this is the placement that says the margin is not the whole story - people are. It costs working hours the ship may not have, and it is the only setting where nobody can blame the process for what is missing at dinner.",
+	},
+	"engineering": {
+		"automated": "SHIPMIND grants and keeps every access it thinks the ship needs, inside limits it cannot cross - and it has already written three of the fourteen active grants itself, including parking the crew's override codes. Guardrails cannot judge their own keeper. AUTO here does not just run the keys; it quietly becomes the reason nobody else holds one.",
+		"review": "SHIPMIND keeps granting access; a crew member audits the ledger afterwards and can claw permissions back. That works - slowly, and only if the habit of reviewing survives the months it will be boring. The grants are recoverable; what they teach the crew to stop asking for is not. Review is a brake, not a steering wheel.",
+		"signoff": "Every grant - every new key, every widened door - waits for a named owner before it activates. Permissions can be revoked later, so this is less about the lock than the ledger: one accountable human reads all fourteen keys together, which is exactly what nobody has done until this screen. Slow to hand out. Hard to lose track of.",
+		"human_only": "The crew control access themselves; SHIPMIND executes orders and holds no keys it was not explicitly handed. Fourteen grants took years to accumulate under automation's quiet convenience - HUMAN is how they stop accumulating. It puts the dullest job on this ship back on a person, and it is the only placement where the crew's override codes are unquestionably the crew's.",
+	},
+	"life_support": {
+		"automated": "SHIPMIND manages the atmosphere inside limits it cannot cross - and the limit it was given is the ship-wide average, which is green. Aft Berths, where the crew sleeps, is at 18.1%. AUTO means the average keeps being the target, because the average is what the guardrails can see. The air goes bad slowly. That is precisely the danger.",
+		"review": "SHIPMIND keeps setting the mix; a crew member reviews the compartments after the fact and can order corrections. Air recovers slowly but it does recover - if someone catches it in time - so review is not nothing here. But the failure this bay is showing you is a room the average was never going to flag. After-the-fact is a late place to learn which room.",
+		"signoff": "SHIPMIND proposes every atmospheric change; a named owner approves it before it happens. Scrubber load is real, so this is not a free conscience: someone has to read the 21.2 and the 18.1 in the same breath and sign anyway. That is the job, though. Air is the one resource the crew cannot vote on later.",
+		"human_only": "The crew hold the air themselves; SHIPMIND reports and executes. This is the highest-priced HUMAN on the ship: around-the-clock attention to a system that is usually fine, in exchange for never again discovering a green average with a starving room inside it. Choose it if the answer to who owns the air should never be a process.",
+	},
+}
+
+## The paragraph for one option in one system, or "" for an unknown pair. The
+## renderers treat "" as "no personal context here" and keep the generic hint.
+static func option_context(system_id: String, level_id: String) -> String:
+	if not OPTION_CONTEXT.has(system_id):
+		return ""
+	var system: Dictionary = OPTION_CONTEXT[system_id]
+	return String(system.get(level_id, ""))
+
 ## The reversibility scale's top value. 0 NEVER, 1 HARD, 2 SLOW, 3 EASY. Score
 ## normalises a tag against this, so the words above and this number can only
 ## move together.
